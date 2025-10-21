@@ -59,7 +59,42 @@
 </head>
 <body>
   <div id="root"></div>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js">
+// --- Telegram Diagnostic Overlay ---
+(function(){
+  function showDiag(info){
+    const box=document.createElement('div');
+    box.style.position='fixed';
+    box.style.top='50%';
+    box.style.left='50%';
+    box.style.transform='translate(-50%,-50%)';
+    box.style.background='rgba(0,0,0,0.9)';
+    box.style.color='white';
+    box.style.padding='16px 24px';
+    box.style.border='1px solid #f0b85a';
+    box.style.borderRadius='12px';
+    box.style.fontSize='14px';
+    box.style.textAlign='left';
+    box.style.zIndex='99999';
+    box.style.whiteSpace='pre-line';
+    box.innerText='🔍 Telegram Debug Info
+'+info;
+    document.body.appendChild(box);
+    setTimeout(()=>box.remove(),3000);
+  }
+  const info=[
+    'ID: '+(window.CURRENT_USER_ID||0),
+    'Username: '+(window.CURRENT_USERNAME||'-'),
+    'Name: '+(window.CURRENT_USER_NAME||'-'),
+    'isAdmin: '+(window.IS_ADMIN||false),
+    'initData: '+(window.Telegram?.WebApp?.initData?'ok':'пусто')
+  ].join('
+');
+  if(document.readyState!=='loading') showDiag(info);
+  else document.addEventListener('DOMContentLoaded',()=>showDiag(info));
+})();
+// --- End Diagnostic Overlay ---
+</script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
