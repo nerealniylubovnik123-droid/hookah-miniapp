@@ -64,38 +64,64 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
-    
-    // --- Telegram Admin Check (final robust) ---
+// --- Telegram User & Admin (robust) ---
+var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+var CURRENT_USER_ID = 0;
+var CURRENT_USER_NAME = "Гость";
+
+try {
+  if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
+  if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
+
+  // Primary: initDataUnsafe.user
+  var u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+  if (u && typeof u.id === 'number') {
+    CURRENT_USER_ID = u.id;
+    var uname = (u.username ? ("@" + u.username) : "");
+    var fname = (u.first_name || "");
+    var lname = (u.last_name || "");
+    var full = (fname && lname) ? (fname + " " + lname) : (fname || lname || "");
+    CURRENT_USER_NAME = (full || uname || "Гость");
+  }
+
+  // Fallback: parse tg.initData if user missing
+  if (!CURRENT_USER_ID && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
+    try {
+      var params = new URLSearchParams(tg.initData);
+      var userJson = params.get('user');
+      if (userJson) {
+        var obj = JSON.parse(userJson);
+        if (obj && obj.id) {
+          CURRENT_USER_ID = obj.id;
+          var uname2 = (obj.username ? ("@" + obj.username) : "");
+          var fname2 = (obj.first_name || "");
+          var lname2 = (obj.last_name || "");
+          var full2 = (fname2 && lname2) ? (fname2 + " " + lname2) : (fname2 || lname2 || "");
+          CURRENT_USER_NAME = (full2 || uname2 || "Гость");
+        }
+      }
+    } catch(e){ /* ignore */ }
+  }
+} catch(e){ /* ignore */ }
+
+// ⚠️ For local browser testing only (do not enable in production):
+// CURRENT_USER_ID = 504348666; CURRENT_USER_NAME = "Admin";
+
+var IS_ADMIN = (CURRENT_USER_ID === 504348666);
+// -------------------------------------------------------------
+
+    // --- Telegram Admin Check (safe, no optional chaining) ---
     var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     var userId = 0;
     try {
-      if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
-      if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
-
-      // Primary: initDataUnsafe
-      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && typeof tg.initDataUnsafe.user.id === 'number') {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
         userId = tg.initDataUnsafe.user.id;
       }
-
-      // Fallback: parse initData (query string), extract "user" JSON
-      if (!userId && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
-        try {
-          var params = new URLSearchParams(tg.initData);
-          var u = params.get('user');
-          if (u) {
-            try {
-              var obj = JSON.parse(u);
-              if (obj && obj.id) userId = obj.id;
-            } catch(e){}
-          }
-        } catch(e){}
-      }
     } catch(e){ userId = 0; }
-    // Uncomment for local browser testing (do NOT enable in production):
-    // // userId = 504348666;
+    // Включи строку ниже для локального теста (отключи в проде):
+    // userId = 504348666;
     var IS_ADMIN = (userId === 504348666);
     // --------------------------------------------------------
-
 
     const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
@@ -142,7 +168,7 @@
       ];const m2=[
         {key:"alfakher:double-apple",brandId:"alfakher",flavorId:"double-apple",name:"Double Apple",percent:50,strength:3,taste:"анисовый, яблочный"},
         {key:"darkside:spiced-rum",brandId:"darkside",flavorId:"spiced-rum",name:"Spiced Rum",percent:50,strength:7,taste:"пряный, алкогольный"}
-      ];setMixes([{id:"ex1",title:"Лесные ягоды",author:"Гость Аня",parts:m1,avgStrength:calcAvg(m1),likes:0,createdAt:Date.now()},{id:"ex2",title:"Яблочный пряный",author:"Гость Макс",parts:m2,avgStrength:calcAvg(m2),likes:0,createdAt:Date.now()}])}},[]);
+      ];setMixes([{id:"ex1",title:"Лесные ягоды",author:"Гость Аня",parts:m1,avgStrength:calcAvg(m1),likes:0,createdAt:Date.now(), author: CURRENT_USER_NAME },{id:"ex2",title:"Яблочный пряный",author:"Гость Макс",parts:m2,avgStrength:calcAvg(m2),likes:0,createdAt:Date.now(), author: CURRENT_USER_NAME }])}},[]);
 
       // community
       const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
@@ -253,5 +279,30 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
   </script>
+<script>
+// --- TEMP: show detected user at bottom-left (can be removed later) ---
+(function(){
+  try {
+    var info = document.getElementById("__tg_user_info__");
+    if (!info) {
+      info = document.createElement("div");
+      info.id = "__tg_user_info__";
+      info.style.position = "fixed";
+      info.style.bottom = "10px";
+      info.style.left = "10px";
+      info.style.background = "rgba(0,0,0,0.55)";
+      info.style.color = "#f0b85a";
+      info.style.fontSize = "12px";
+      info.style.padding = "6px 10px";
+      info.style.borderRadius = "8px";
+      info.style.zIndex = "9999";
+      info.style.pointerEvents = "none";
+      info.textContent = "Telegram ID: " + CURRENT_USER_ID + " | Admin: " + IS_ADMIN + " | Name: " + CURRENT_USER_NAME;
+      document.body.appendChild(info);
+    }
+  } catch(e){}
+})();
+// ---------------------------------------------------------------------
+</script>
 </body>
 </html>
