@@ -1,86 +1,91 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hookah MiniApp</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Кальянный Миксер — Enhanced Stable</title>
   <style>
-    body {
-      background: #000;
-      color: #f0e9db;
-      font-family: system-ui, sans-serif;
-      margin: 0;
-      padding: 0;
+    :root{
+      --bg:#000;
+      --panel:#0c0c0c;
+      --panel-2:#151515;
+      --border:#242424;
+      --text:#fff;
+      --muted:#f0e9db;
+      --accent:#f0b85a;
     }
-    .center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      text-align: center;
-      font-size: 1.1rem;
-      color: #f0e9db;
-    }
-    .hidden { display: none; }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter, system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:420px;margin:0 auto;padding:16px;display:grid;gap:16px}
+    header.title{font-weight:700;text-align:center;color:var(--muted);font-size:20px}
+    .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--panel-2);padding:6px;border-radius:14px}
+    .tab-btn{background:transparent;border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s transform,.2s background,.2s color}
+    .tab-btn:hover{transform:translateY(-1px)}
+    .tab-btn:active{transform:translateY(0) scale(.98)}
+    .tab-btn.active{background:var(--accent);color:#000}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px}
+    .card .hd{padding:14px 14px 0 14px}
+    .card .hd h3{margin:0 0 2px 0;font-size:18px}
+    .card .hd .desc{margin:0 0 10px 0;font-size:12px;color:rgba(240,233,219,.7)}
+    .card .bd{padding:12px 14px 14px 14px}
+    .btn{background:#1f1f1f;border:1px solid #2a2a2a;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0) scale(.98)}
+    .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
+    .btn.small{padding:4px 8px;font-size:12px;border-radius:8px}
+    .btn.ghost{background:transparent;border-color:#2a2a2a}
+    .btn.danger{background:#3a0d0d;border-color:#5a1a1a;color:#ffbaba}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .grid{display:grid;gap:8px}
+    .brand-btn{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border;text-align:center}
+    .brand-btn:hover{transform:translateY(-1px)}
+    .brand-btn:active{transform:translateY(0) scale(.98)}
+    .brand-btn.active{background:var(--accent);border-color:var(--accent);color:#000}
+    .row{display:flex;gap:8px;align-items:center}
+    .row.between{justify-content:space-between}
+    .space{height:8px}
+    .input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:#fff;border-radius:10px;padding:10px}
+    .mix-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
+    .tiny{font-size:11px}
+    .muted{opacity:.75}
+    .sep{height:1px;background:var(--border);margin:8px 0}
+    .taste-line{font-size:13px;opacity:.92}
+    .flavor-item{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
+    input[type=range]{width:100%;accent-color:var(--accent)}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-size:11px}
+    .badge.hidden{border-color:#503333;background:#2a1a1a;color:#ffbaba}
+    .badge.ok{border-color:#2c4737;background:#16271d;color:#bff5d6}
   </style>
 </head>
 <body>
-  <div id="telegram-check" class="center">
-    <div>❗ Откройте приложение через Telegram Mini App (бота)</div>
-  </div>
-  <div id="app" class="hidden"></div>
-
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script>
-    // === Telegram SDK detection ===
-    const tg = window.Telegram?.WebApp;
-    const user = tg?.initDataUnsafe?.user;
-    const username = user?.username || "";
-    const isAdmin = username === "Tutenhaman";
-
-    function showApp() {
-      document.getElementById("telegram-check").classList.add("hidden");
-      document.getElementById("app").classList.remove("hidden");
+  // --- Telegram Auth Integration ---
+  window.Telegram?.WebApp?.ready();
+  const tg = window.Telegram?.WebApp || null;
+  const tgUser = tg?.initDataUnsafe?.user || null;
+  const tgAuth = {
+    id: tgUser?.id || 0,
+    username: tgUser?.username || "",
+    name: tgUser ? [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ") : "Гость"
+  };
+  localStorage.setItem("tgAuth", JSON.stringify(tgAuth));
+  console.log("Telegram Auth:", tgAuth);
+  </script>
+  <script type="text/babel" data-presets="react">
+    const {useState,useEffect} = React;
+    function App(){
+      const [user,setUser]=useState(()=>JSON.parse(localStorage.getItem("tgAuth"))||{name:"Гость"});
+      return <div className="container">
+        <header className="title">Кальянный Миксер</header>
+        <div className="card"><div className="hd"><h3>Добро пожаловать, {user.name}</h3></div><div className="bd"><p>Ваш Telegram ID: {user.id}</p></div></div>
+      </div>;
     }
-
-    function showTelegramNotice() {
-      document.getElementById("telegram-check").classList.remove("hidden");
-    }
-
-    if (!window.Telegram || !window.Telegram.WebApp || !user) {
-      showTelegramNotice();
-    } else {
-      showApp();
-      initHookahApp(isAdmin);
-    }
-
-    // === Main App ===
-    function initHookahApp(isAdmin) {
-      const app = document.getElementById("app");
-      app.innerHTML = `
-      <div style="max-width:420px;margin:0 auto;padding:16px">
-        <h2 style="text-align:center;color:#f0b85a;">Кальянный миксер</h2>
-        <div style="display:flex;justify-content:space-around;margin-bottom:16px;">
-          <button id="tab-mixes" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Миксы</button>
-          <button id="tab-builder" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Конструктор</button>
-          ${isAdmin ? `<button id="tab-admin" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Админ</button>` : ""}
-        </div>
-        <div id="content" style="color:white;font-size:0.9rem;">Выберите вкладку</div>
-      </div>`;
-
-      const content = document.getElementById("content");
-      document.getElementById("tab-mixes").onclick = () => {
-        content.innerHTML = `<b>Раздел миксов гостей</b><br>Рекомендации и сохранённые миксы.`;
-      };
-      document.getElementById("tab-builder").onclick = () => {
-        content.innerHTML = `<b>Конструктор миксов</b><br>Выбор брендов и вкусов, создание собственного микса.`;
-      };
-      if (isAdmin) {
-        document.getElementById("tab-admin").onclick = () => {
-          content.innerHTML = `<b>Админ-панель</b><br>Добавление и управление брендами, вкусами и запрещёнными словами.`;
-        };
-      }
-    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
   </script>
 </body>
 </html>
