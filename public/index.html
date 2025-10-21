@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hookah MiniApp</title>
-  <!-- ✅ Подключаем Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <style>
     body {
       background: #000;
@@ -29,44 +27,56 @@
   </style>
 </head>
 <body>
-  <!-- Сообщение, если не в Telegram -->
   <div id="telegram-check" class="center hidden">
     ❗ Откройте приложение через Telegram Mini App (бота)
   </div>
 
-  <!-- React-приложение появится после авторизации -->
   <div id="root" class="hidden"></div>
 
   <script>
-    // === Telegram Auth before React ===
-    function getTelegramUser() {
+    // === Telegram WebApp инициализация ===
+    async function initTelegram() {
       try {
-        const tg = window.Telegram?.WebApp;
-        if (tg?.initDataUnsafe?.user) {
-          const u = tg.initDataUnsafe.user;
-          const fullName = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || `User ${u.id}`;
-          return { id: String(u.id), username: u.username || "no_username", name: fullName };
+        if (!window.Telegram || !window.Telegram.WebApp) {
+          console.warn("❌ Telegram SDK not found");
+          document.getElementById("telegram-check").classList.remove("hidden");
+          return;
         }
-      } catch (e) { console.warn("Telegram SDK error:", e); }
-      return null;
+
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+
+        // ждём, пока WebApp полностью инициализируется
+        await new Promise(r => setTimeout(r, 150));
+
+        const user = tg.initDataUnsafe?.user || null;
+        console.log("✅ Telegram SDK найден:", tg);
+        console.log("👤 Пользователь из initDataUnsafe:", user);
+
+        if (!user) {
+          document.getElementById("telegram-check").classList.remove("hidden");
+          return;
+        }
+
+        // определяем имя и роль
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || `User ${user.id}`;
+        const isAdmin = user.username === "Tutenhaman";
+
+        window.HOOKAH_USER = { id: String(user.id), username: user.username || "", name: fullName };
+        window.HOOKAH_IS_ADMIN = isAdmin;
+
+        console.log("⭐ Admin status:", isAdmin);
+
+        document.getElementById("root").classList.remove("hidden");
+        loadReactApp();
+
+      } catch (err) {
+        console.error("Telegram init error:", err);
+        document.getElementById("telegram-check").classList.remove("hidden");
+      }
     }
 
-    const user = getTelegramUser();
-    const isTelegram = !!window.Telegram?.WebApp;
-    const isAdmin = user?.username === "Tutenhaman";
-
-    if (!isTelegram || !user) {
-      // Не в Telegram → показываем предупреждение
-      document.getElementById("telegram-check").classList.remove("hidden");
-    } else {
-      // Telegram найден → передаём данные в React
-      document.getElementById("root").classList.remove("hidden");
-      window.HOOKAH_USER = user;
-      window.HOOKAH_IS_ADMIN = isAdmin;
-      // После этого подключаем React
-      loadReactApp();
-    }
-
+    // === Загрузка React-приложения ===
     function loadReactApp() {
       const scriptReact = document.createElement("script");
       scriptReact.src = "https://unpkg.com/react@18/umd/react.development.js";
@@ -82,6 +92,7 @@
         appScript.type = "text/babel";
         appScript.textContent = `
           const { useState } = React;
+
           function App() {
             const user = window.HOOKAH_USER;
             const isAdmin = window.HOOKAH_IS_ADMIN;
@@ -111,6 +122,9 @@
         document.body.append(appScript);
       };
     }
+
+    // === Запускаем инициализацию ===
+    initTelegram();
   </script>
 </body>
 </html>
