@@ -64,64 +64,27 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
-
-// --- Telegram User & Admin (by username) ---
+// --- Telegram User & Admin (robust) ---
 var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
 var CURRENT_USER_ID = 0;
 var CURRENT_USER_NAME = "Гость";
-var CURRENT_USERNAME = "";
-// --- Telegram User & Admin (by username) ---
-var tg = window.Telegram?.WebApp || null;
-var CURRENT_USER_ID = 0;
-var CURRENT_USER_NAME = "Гость";
-var CURRENT_USERNAME = "";
-const ADMIN_USERNAMES = ["tooman", "hookahboss", "barowner"]; // 👈 usernames без @
-
-// попытка считать данные Telegram
-try {
-  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-    const u = tg.initDataUnsafe.user;
-    CURRENT_USER_ID = u.id || 0;
-    CURRENT_USERNAME = (u.username || "").toLowerCase();
-    CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
-  }
-} catch(e) {
-  console.warn("Ошибка чтения Telegram WebApp данных:", e);
-}
-
-// логирование для проверки
-console.log("Telegram user check → ID:", CURRENT_USER_ID, "Username:", CURRENT_USERNAME, "Name:", CURRENT_USER_NAME);
-
-// если пусто — фолбэк для оффлайн / теста
-if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-  CURRENT_USERNAME = "tooman";
-  CURRENT_USER_NAME = "Admin (offline)";
-  console.warn("Offline mode: admin override as", CURRENT_USERNAME);
-}
-
-// если Telegram ничего не передал (пустой initData), принудительно делаем админом tooman
-if (!CURRENT_USERNAME) {
-  CURRENT_USERNAME = "tooman";
-  CURRENT_USER_NAME = "Fallback Admin";
-  console.warn("Fallback admin set due to empty Telegram data");
-}
-
-var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
-console.log("Admin check →", IS_ADMIN, "for", CURRENT_USERNAME);
-// -------------------------------------------------------------
 
 try {
   if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
   if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
+
+  // Primary: initDataUnsafe.user
   var u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
   if (u && typeof u.id === 'number') {
     CURRENT_USER_ID = u.id;
-    CURRENT_USERNAME = (u.username || "").toLowerCase();
+    var uname = (u.username ? ("@" + u.username) : "");
     var fname = (u.first_name || "");
     var lname = (u.last_name || "");
     var full = (fname && lname) ? (fname + " " + lname) : (fname || lname || "");
-    CURRENT_USER_NAME = (full || "@" + CURRENT_USERNAME || "Гость");
+    CURRENT_USER_NAME = (full || uname || "Гость");
   }
+
+  // Fallback: parse tg.initData if user missing
   if (!CURRENT_USER_ID && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
     try {
       var params = new URLSearchParams(tg.initData);
@@ -130,25 +93,22 @@ try {
         var obj = JSON.parse(userJson);
         if (obj && obj.id) {
           CURRENT_USER_ID = obj.id;
-          CURRENT_USERNAME = (obj.username || "").toLowerCase();
+          var uname2 = (obj.username ? ("@" + obj.username) : "");
           var fname2 = (obj.first_name || "");
           var lname2 = (obj.last_name || "");
           var full2 = (fname2 && lname2) ? (fname2 + " " + lname2) : (fname2 || lname2 || "");
-          CURRENT_USER_NAME = (full2 || "@" + CURRENT_USERNAME || "Гость");
+          CURRENT_USER_NAME = (full2 || uname2 || "Гость");
         }
       }
-    } catch(e){}
+    } catch(e){ /* ignore */ }
   }
-} catch(e){}
+} catch(e){ /* ignore */ }
 
-if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-  CURRENT_USERNAME = "tooman";
-  CURRENT_USER_NAME = "Admin (offline)";
-}
+// ⚠️ For local browser testing only (do not enable in production):
+// CURRENT_USER_ID = 504348666; CURRENT_USER_NAME = "Admin";
 
-var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
+var IS_ADMIN = (CURRENT_USER_ID === 504348666);
 // -------------------------------------------------------------
-
 
       const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
@@ -342,25 +302,32 @@ color:white;
 padding:16px 24px;
 border:1px solid #f0b85a;
 border-radius:12px;
-font-size:14px;
+font-size:13px;
 text-align:left;
 z-index:99999;
 white-space:pre-line;
-transition:opacity 1s ease;
 ">
-🔍 Диагностика включена
+🔍 Расширенная диагностика Telegram API
 </div>
 <script>
-setTimeout(()=>{
-  const o=document.getElementById('diag-overlay');
-  if(o){
-    o.innerText='ID: '+(window.CURRENT_USER_ID||0)+'
-Username: '+(window.CURRENT_USERNAME||'-')+'
-isAdmin: '+(window.IS_ADMIN||false);
-    setTimeout(()=>o.style.opacity='0',2000);
-    setTimeout(()=>o.remove(),3000);
-  }
-},500);
+try {
+  const o = document.getElementById('diag-overlay');
+  const tg = window.Telegram;
+  const wa = tg?.WebApp;
+  const init = wa?.initDataUnsafe;
+  const user = init?.user;
+  const lines = [
+    'Telegram object: ' + !!tg,
+    'WebApp object: ' + !!wa,
+    'initDataUnsafe exists: ' + !!init,
+    'user exists: ' + !!user,
+    'Raw initDataUnsafe: ' + JSON.stringify(init || null, null, 2)
+  ];
+  o.textContent = lines.join('
+');
+} catch (e) {
+  document.getElementById('diag-overlay').textContent = 'Ошибка диагностики: ' + e;
+}
 </script>
 </body>
 </html>
