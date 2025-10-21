@@ -1,12 +1,19 @@
 {
   "name": "hookah-miniapp",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "description": "Telegram Mini App для кальянной — конструктор миксов и панель администратора",
   "main": "server.cjs",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.cjs"
+    "start": "node server.cjs",
+    "bot": "node bot.cjs",
+    "dev": "concurrently \"npm run start\" \"npm run bot\""
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "node-telegram-bot-api": "^0.61.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
