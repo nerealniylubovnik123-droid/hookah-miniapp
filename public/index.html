@@ -64,17 +64,26 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
-    // --- Telegram Admin Check (safe, no optional chaining) ---
+    // --- Telegram Admin Check (robust) ---
     var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     var userId = 0;
     try {
-      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+      // Primary: initDataUnsafe
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && typeof tg.initDataUnsafe.user.id === 'number') {
         userId = tg.initDataUnsafe.user.id;
       }
+      // Fallback: parse initData (string) -> extract "user" JSON
+      if (!userId && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
+        var params = new URLSearchParams(tg.initData);
+        var u = params.get('user');
+        if (u) {
+          try { var obj = JSON.parse(u); if (obj && obj.id) userId = obj.id; } catch(e){}
+        }
+      }
     } catch(e){ userId = 0; }
-    // Включи строку ниже для локального теста (отключи в проде):
+    // Uncomment for local testing in browser (NOT in production):
     // userId = 504348666;
-
+    if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
     var IS_ADMIN = (userId === 504348666);
     // --------------------------------------------------------
 
