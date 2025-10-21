@@ -1,0 +1,12 @@
+{
+  "name": "hookah-miniapp",
+  "version": "1.0.0",
+  "description": "Telegram Mini App для кальянной (GitHub → Railway)",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
