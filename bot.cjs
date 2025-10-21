@@ -1,79 +1,62 @@
-// bot.cjs
-import { Telegraf } from "telegraf";
-import fs from "fs";
+// === Telegram bot for Hookah MiniApp ===
+import TelegramBot from "node-telegram-bot-api";
+import express from "express";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) throw new Error("❌ Missing BOT_TOKEN env variable!");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const bot = new Telegraf(BOT_TOKEN);
-
-// --- Persistent storage (list of users who already started) ---
-const FILE_PATH = "/mnt/data/started.json";
-let startedUsers = new Set();
-
-// Load existing users
-try {
-  if (fs.existsSync(FILE_PATH)) {
-    const data = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
-    if (Array.isArray(data)) startedUsers = new Set(data);
-  }
-} catch (e) {
-  console.error("Failed to read started.json:", e);
+const token = process.env.BOT_TOKEN;
+if (!token) {
+  console.error("❌ BOT_TOKEN is missing in environment variables.");
+  process.exit(1);
 }
 
-// Save helper
-function saveStarted() {
-  try {
-    fs.writeFileSync(FILE_PATH, JSON.stringify([...startedUsers], null, 2), "utf8");
-  } catch (e) {
-    console.error("Failed to save started.json:", e);
-  }
-}
+const bot = new TelegramBot(token, { polling: true });
 
-// --- Commands ---
-bot.start(async (ctx) => {
-  const userId = ctx.from?.id;
-  const firstName = ctx.from?.first_name || "Guest";
+// === Express server to serve WebApp ===
+const app = express();
+const PORT = process.env.PORT || 8080;
 
-  if (!userId) return ctx.reply("Sorry, I can't detect your Telegram ID.");
+app.use(express.static(path.join(__dirname, "public")));
 
-  // If user is new — send WebApp button
-  if (!startedUsers.has(userId)) {
-    startedUsers.add(userId);
-    saveStarted();
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
-    const webAppUrl = "https://hookah-miniapp-production.up.railway.app/";
+app.listen(PORT, () => {
+  console.log(`✅ Hookah MiniApp running on port ${PORT}`);
+});
 
-    await ctx.reply(`Welcome, ${firstName}! 👋\nOpen the Hookah Mixer below:`, {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Hookah Mixer",
-              web_app: { url: webAppUrl },
-            },
-          ],
+// === Telegram WebApp button setup ===
+const WEBAPP_URL = "https://hookah-miniapp-production.up.railway.app";
+
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  await bot.sendMessage(chatId, "Добро пожаловать в кальянный миксер 👇", {
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: "Открыть миксер",
+            web_app: { url: WEBAPP_URL },
+          },
         ],
-      },
-    });
-  } else {
-    await ctx.reply("You already have access to the Hookah Mixer 😉");
-  }
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+    },
+  });
 });
 
-// --- Simple health check ---
-bot.command("ping", (ctx) => ctx.reply("pong 🪩"));
-
-// --- Error handling ---
-bot.catch((err) => {
-  console.error("Bot error:", err);
+// === Optional: handle WebApp data (if needed) ===
+bot.on("web_app_data", (msg) => {
+  console.log("📩 WebApp data received:", msg.web_app_data?.data);
 });
 
-// --- Launch ---
-bot.launch();
-console.log("✅ Telegram bot started. Type /start in your chat.");
-
-// Enable graceful stop
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+// === Error handling ===
+bot.on("polling_error", (err) => {
+  console.error("Polling error:", err);
+});
