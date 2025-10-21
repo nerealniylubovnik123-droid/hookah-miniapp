@@ -64,43 +64,38 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
-    // --- Telegram Admin Check (robust) ---
+    
+    // --- Telegram Admin Check (final robust) ---
     var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     var userId = 0;
     try {
+      if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
+      if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
+
       // Primary: initDataUnsafe
       if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && typeof tg.initDataUnsafe.user.id === 'number') {
         userId = tg.initDataUnsafe.user.id;
       }
-      // Fallback: parse initData (string) -> extract "user" JSON
+
+      // Fallback: parse initData (query string), extract "user" JSON
       if (!userId && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
-        var params = new URLSearchParams(tg.initData);
-        var u = params.get('user');
-        if (u) {
-          try { var obj = JSON.parse(u); if (obj && obj.id) userId = obj.id; } catch(e){}
-        }
+        try {
+          var params = new URLSearchParams(tg.initData);
+          var u = params.get('user');
+          if (u) {
+            try {
+              var obj = JSON.parse(u);
+              if (obj && obj.id) userId = obj.id;
+            } catch(e){}
+          }
+        } catch(e){}
       }
     } catch(e){ userId = 0; }
-    // Uncomment for local testing in browser (NOT in production):
-    // userId = 504348666;
-    if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
+    // Uncomment for local browser testing (do NOT enable in production):
+    // // userId = 504348666;
     var IS_ADMIN = (userId === 504348666);
-    // --- TEMP DEBUG BLOCK ---
-(function(){
-  const info = document.createElement("div");
-  info.style.position = "fixed";
-  info.style.bottom = "10px";
-  info.style.left = "10px";
-  info.style.background = "rgba(0,0,0,0.6)";
-  info.style.color = "#f0b85a";
-  info.style.fontSize = "12px";
-  info.style.padding = "6px 10px";
-  info.style.borderRadius = "8px";
-  info.style.zIndex = "9999";
-  info.innerText = `Telegram ID: ${userId} | Admin: ${IS_ADMIN}`;
-  document.body.appendChild(info);
-})();
     // --------------------------------------------------------
+
 
     const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
