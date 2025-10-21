@@ -3,51 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🔍 Диагностика Telegram SDK v3</title>
+  <title>Hookah MiniApp</title>
   <style>
     body {
       background: #000;
-      color: #0f0;
-      font-family: monospace;
-      padding: 10px;
-      white-space: pre-wrap;
+      color: #f0e9db;
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
     }
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      font-size: 1.1rem;
+      color: #f0e9db;
+    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h2>🔍 Расширенная диагностика Telegram SDK (v3)</h2>
-  <div id="log">Запуск проверки...</div>
+  <div id="telegram-check" class="center">
+    <div>❗ Откройте приложение через Telegram Mini App (бота)</div>
+  </div>
+  <div id="app" class="hidden"></div>
 
   <script>
-    const logEl = document.getElementById("log");
-    function log(msg) {
-      const time = new Date().toLocaleTimeString();
-      logEl.textContent += `\n[${time}] ${msg}`;
+    // === Telegram SDK detection ===
+    const tg = window.Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    const username = user?.username || "";
+    const isAdmin = username === "Tutenhaman";
+
+    function showApp() {
+      document.getElementById("telegram-check").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
     }
 
-    function safe(fn) {
-      try { return fn(); } catch { return undefined; }
+    function showTelegramNotice() {
+      document.getElementById("telegram-check").classList.remove("hidden");
     }
 
-    function updateDiagnostics() {
-      const tg = safe(() => window.Telegram);
-      const webApp = safe(() => window.Telegram.WebApp);
-      const initData = safe(() => webApp.initData);
-      const user = safe(() => webApp.initDataUnsafe?.user);
+    if (!window.Telegram || !window.Telegram.WebApp || !user) {
+      showTelegramNotice();
+    } else {
+      showApp();
+      initHookahApp(isAdmin);
+    }
 
-      logEl.textContent = ""; // очищаем экран каждый тик
-      log("🔁 Проверка состояния...");
-      log(`Telegram SDK: ${tg ? "✅ найден" : "❌ нет"}`);
-      log(`WebApp: ${webApp ? "✅ есть" : "❌ нет"}`);
-      log(`initData: ${initData ? initData.slice(0, 50) + "..." : "❌ нет"}`);
-      log(`user: ${user ? JSON.stringify(user, null, 2) : "❌ нет"}`);
-      if (user) {
-        log(`ID: ${user.id || "❌ нет"} | username: ${user.username || "❌ нет"}`);
+    // === Main App ===
+    function initHookahApp(isAdmin) {
+      const app = document.getElementById("app");
+      app.innerHTML = `
+      <div style="max-width:420px;margin:0 auto;padding:16px">
+        <h2 style="text-align:center;color:#f0b85a;">Кальянный миксер</h2>
+        <div style="display:flex;justify-content:space-around;margin-bottom:16px;">
+          <button id="tab-mixes" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Миксы</button>
+          <button id="tab-builder" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Конструктор</button>
+          ${isAdmin ? `<button id="tab-admin" style="background:#151515;color:white;border:none;padding:8px 16px;border-radius:10px;">Админ</button>` : ""}
+        </div>
+        <div id="content" style="color:white;font-size:0.9rem;">Выберите вкладку</div>
+      </div>`;
+
+      const content = document.getElementById("content");
+      document.getElementById("tab-mixes").onclick = () => {
+        content.innerHTML = `<b>Раздел миксов гостей</b><br>Рекомендации и сохранённые миксы.`;
+      };
+      document.getElementById("tab-builder").onclick = () => {
+        content.innerHTML = `<b>Конструктор миксов</b><br>Выбор брендов и вкусов, создание собственного микса.`;
+      };
+      if (isAdmin) {
+        document.getElementById("tab-admin").onclick = () => {
+          content.innerHTML = `<b>Админ-панель</b><br>Добавление и управление брендами, вкусами и запрещёнными словами.`;
+        };
       }
     }
-
-    setInterval(updateDiagnostics, 500);
-    updateDiagnostics();
   </script>
 </body>
 </html>
