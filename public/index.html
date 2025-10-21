@@ -9,27 +9,25 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
 </head>
+
 <body class="bg-black text-white">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect } = React;
 
-    // --- Определение пользователя Telegram ---
+    // --- Определение Telegram пользователя ---
     function getTelegramUser() {
       let tg = window.Telegram?.WebApp || null;
       let userId = 0;
       let userName = "Гость";
 
       try {
-        // 1. Попытка через initDataUnsafe
         if (tg?.initDataUnsafe?.user?.id) {
-          userId = tg.initDataUnsafe.user.id;
           const u = tg.initDataUnsafe.user;
+          userId = u.id;
           userName = u.first_name + (u.last_name ? " " + u.last_name : "") || u.username || "Гость";
-        }
-        // 2. Попытка через initData (строка)
-        else if (tg?.initData) {
+        } else if (tg?.initData) {
           const params = new URLSearchParams(tg.initData);
           const userParam = params.get("user");
           if (userParam) {
@@ -39,64 +37,45 @@
           }
         }
       } catch (e) {
-        console.warn("Telegram initData parse error:", e);
+        console.warn("Telegram init error:", e);
       }
 
-      // 3. Фолбэк при локальном тесте или если данных нет
-      if (!userId) {
+      // Фолбэк только для локального режима
+      if (
+        !userId &&
+        (location.hostname === "localhost" || location.protocol === "file:")
+      ) {
         userId = 504348666;
         userName = "Admin (offline)";
       }
+
       return { id: userId, name: userName };
     }
 
-    // --- Компонент приложения ---
     function HookahMiniApp() {
       const [user, setUser] = useState(getTelegramUser());
       const isAdmin = user.id === 504348666;
       const [tab, setTab] = useState("community");
 
-      const DIRECTIONS = ["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
-
-      // --- Пример данных ---
-      const brands = [
-        { id: "alfakher", name: "Al Fakher", flavors: [
-          { id: "mint", name: "Mint", strength: 2, taste: "мятный, свежий" },
-          { id: "grape", name: "Grape", strength: 2, taste: "виноград, фруктовый" },
-          { id: "double-apple", name: "Double Apple", strength: 3, taste: "анис, яблоко" }
-        ]},
-        { id: "musthave", name: "Must Have", flavors: [
-          { id: "raspberry", name: "Raspberry", strength: 3, taste: "ягодный, кисловатый" },
-          { id: "cheesecake", name: "Cheesecake", strength: 4, taste: "десертный, сливочный" },
-          { id: "whiskey-cola", name: "Whiskey Cola", strength: 5, taste: "алкогольный, кола" }
-        ]},
-        { id: "darkside", name: "Darkside", flavors: [
-          { id: "pear", name: "Pear", strength: 5, taste: "грушевый, сочный" },
-          { id: "cola", name: "Cola", strength: 5, taste: "карамельный" },
-          { id: "spiced-rum", name: "Spiced Rum", strength: 7, taste: "пряный, алкогольный" }
-        ]}
-      ];
-
       const [mixes, setMixes] = useState([
         {
-          id: "ex1",
+          id: "m1",
           title: "Лесные ягоды",
           author: "Гость Аня",
           parts: [
             { name: "Raspberry", percent: 60, strength: 3, taste: "ягодный, кисловатый" },
-            { name: "Mint", percent: 40, strength: 2, taste: "мятный, свежий" }
+            { name: "Mint", percent: 40, strength: 2, taste: "мятный, свежий" },
           ],
           avgStrength: 3,
           likes: 0,
-          createdAt: Date.now()
-        }
+          createdAt: Date.now(),
+        },
       ]);
 
-      // --- Добавление микса ---
       const [parts, setParts] = useState([]);
       const [title, setTitle] = useState("");
       const [desc, setDesc] = useState("");
-      const totalPercent = parts.reduce((a,b)=>a+b.percent,0);
+      const totalPercent = parts.reduce((a, b) => a + b.percent, 0);
 
       const saveMix = () => {
         if (totalPercent !== 100) return;
@@ -106,65 +85,112 @@
           description: desc,
           author: user.name || "Гость",
           parts,
-          avgStrength: Math.round(parts.reduce((a,p)=>a+p.percent*p.strength,0)/100),
+          avgStrength: Math.round(
+            parts.reduce((a, p) => a + p.percent * p.strength, 0) / 100
+          ),
           likes: 0,
-          createdAt: Date.now()
+          createdAt: Date.now(),
         };
         setMixes([...mixes, newMix]);
-        setTitle(""); setDesc(""); setParts([]);
+        setTitle("");
+        setDesc("");
+        setParts([]);
       };
 
-      // --- UI ---
       return (
         <div className="max-w-md mx-auto p-4 text-white">
-          <header className="text-center mb-4 text-xl font-semibold text-yellow-400">Кальянный Миксер</header>
+          <header className="text-center mb-4 text-xl font-semibold text-yellow-400">
+            Кальянный Миксер
+          </header>
+
           <div className="flex justify-between bg-gray-800 rounded-lg overflow-hidden mb-4">
-            <button className={`flex-1 py-2 ${tab==='community'?'bg-yellow-500 text-black':'text-white'}`} onClick={()=>setTab('community')}>Миксы</button>
-            <button className={`flex-1 py-2 ${tab==='builder'?'bg-yellow-500 text-black':'text-white'}`} onClick={()=>setTab('builder')}>Конструктор</button>
-            {isAdmin && <button className={`flex-1 py-2 ${tab==='admin'?'bg-yellow-500 text-black':'text-white'}`} onClick={()=>setTab('admin')}>Админ</button>}
+            <button
+              className={`flex-1 py-2 ${tab === "community" ? "bg-yellow-500 text-black" : "text-white"}`}
+              onClick={() => setTab("community")}
+            >
+              Миксы
+            </button>
+            <button
+              className={`flex-1 py-2 ${tab === "builder" ? "bg-yellow-500 text-black" : "text-white"}`}
+              onClick={() => setTab("builder")}
+            >
+              Конструктор
+            </button>
+            {isAdmin && (
+              <button
+                className={`flex-1 py-2 ${tab === "admin" ? "bg-yellow-500 text-black" : "text-white"}`}
+                onClick={() => setTab("admin")}
+              >
+                Админ
+              </button>
+            )}
           </div>
 
+          {/* Вкладка — миксы */}
           {tab === "community" && (
             <div>
               <h2 className="text-lg font-medium mb-2">Сохранённые миксы</h2>
-              {mixes.map(m => (
-                <div key={m.id} className="bg-gray-900 p-3 mb-3 rounded-lg border border-gray-700">
+              {mixes.map((m) => (
+                <div
+                  key={m.id}
+                  className="bg-gray-900 p-3 mb-3 rounded-lg border border-gray-700"
+                >
                   <div className="flex justify-between">
                     <div>
                       <div className="font-semibold text-yellow-400">{m.title}</div>
                       <div className="text-sm opacity-70">Микс от {m.author}</div>
                     </div>
-                    <div className="text-sm opacity-80">Крепость: {m.avgStrength}</div>
+                    <div className="text-sm opacity-80">
+                      Крепость: {m.avgStrength}
+                    </div>
                   </div>
                   <div className="text-xs mt-1 opacity-80">
-                    {m.parts.map(p=>`${p.name} ${p.percent}%`).join(' + ')}
+                    {m.parts.map((p) => `${p.name} ${p.percent}%`).join(" + ")}
                   </div>
                 </div>
               ))}
             </div>
           )}
 
+          {/* Вкладка — конструктор */}
           {tab === "builder" && (
             <div>
               <h2 className="text-lg font-medium mb-2">Создать свой микс</h2>
               <div className="bg-gray-900 p-3 rounded-lg border border-gray-700 mb-3">
                 <div className="text-sm mb-1">Название</div>
-                <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full bg-gray-800 p-2 rounded text-white mb-2"/>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-gray-800 p-2 rounded text-white mb-2"
+                />
                 <div className="text-sm mb-1">Описание</div>
-                <textarea value={desc} onChange={e=>setDesc(e.target.value)} className="w-full bg-gray-800 p-2 rounded text-white mb-2"/>
-                <button disabled={totalPercent!==100} onClick={saveMix} className={`w-full py-2 rounded ${totalPercent===100?'bg-yellow-500 text-black':'bg-gray-700 text-gray-400'}`}>
+                <textarea
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  className="w-full bg-gray-800 p-2 rounded text-white mb-2"
+                />
+                <button
+                  disabled={totalPercent !== 100}
+                  onClick={saveMix}
+                  className={`w-full py-2 rounded ${totalPercent === 100 ? "bg-yellow-500 text-black" : "bg-gray-700 text-gray-400"}`}
+                >
                   Сохранить микс
                 </button>
               </div>
             </div>
           )}
 
+          {/* Вкладка — админ */}
           {isAdmin && tab === "admin" && (
             <div>
               <h2 className="text-lg font-medium mb-2">Панель администратора</h2>
               <div className="bg-gray-900 p-3 rounded-lg border border-gray-700">
-                <div className="text-sm text-yellow-400 mb-2">Привет, Админ!</div>
-                <div className="text-sm opacity-80">Здесь будут функции управления вкусами и фильтрами.</div>
+                <div className="text-sm text-yellow-400 mb-2">
+                  Привет, Админ!
+                </div>
+                <div className="text-sm opacity-80">
+                  Здесь будут функции управления вкусами и фильтрами.
+                </div>
               </div>
             </div>
           )}
