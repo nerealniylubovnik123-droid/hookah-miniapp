@@ -65,19 +65,15 @@
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
 
-// --- Telegram User & Admin (by username) ---
-var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
-var CURRENT_USER_ID = 0;
-var CURRENT_USER_NAME = "Гость";
-var CURRENT_USERNAME = "";
+
 // --- Telegram User & Admin (by username) ---
 var tg = window.Telegram?.WebApp || null;
 var CURRENT_USER_ID = 0;
 var CURRENT_USER_NAME = "Гость";
 var CURRENT_USERNAME = "";
-const ADMIN_USERNAMES = ["tooman", "hookahboss", "barowner"]; // 👈 usernames без @
+const ADMIN_USERNAMES = ["tutenhaman"]; // 👈 только username без @
 
-// попытка считать данные Telegram
+// Попытка считать данные Telegram WebApp
 try {
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
     const u = tg.initDataUnsafe.user;
@@ -85,30 +81,26 @@ try {
     CURRENT_USERNAME = (u.username || "").toLowerCase();
     CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
   }
-} catch(e) {
+} catch (e) {
   console.warn("Ошибка чтения Telegram WebApp данных:", e);
 }
 
-// логирование для проверки
-console.log("Telegram user check → ID:", CURRENT_USER_ID, "Username:", CURRENT_USERNAME, "Name:", CURRENT_USER_NAME);
-
-// если пусто — фолбэк для оффлайн / теста
+// Режим локального теста — только localhost / file://
 if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-  CURRENT_USERNAME = "tooman";
+  CURRENT_USERNAME = "tutenhaman";
   CURRENT_USER_NAME = "Admin (offline)";
-  console.warn("Offline mode: admin override as", CURRENT_USERNAME);
+  console.log("Offline test mode: admin =", CURRENT_USERNAME);
 }
 
-// если Telegram ничего не передал (пустой initData), принудительно делаем админом tooman
-if (!CURRENT_USERNAME) {
-  CURRENT_USERNAME = "tooman";
-  CURRENT_USER_NAME = "Fallback Admin";
-  console.warn("Fallback admin set due to empty Telegram data");
+// Основная проверка — только если реально пришло имя
+var IS_ADMIN = false;
+if (CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) {
+  IS_ADMIN = true;
 }
 
-var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
-console.log("Admin check →", IS_ADMIN, "for", CURRENT_USERNAME);
+console.log("Telegram user:", CURRENT_USERNAME, "| Admin:", IS_ADMIN);
 // -------------------------------------------------------------
+
 
 try {
   if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
