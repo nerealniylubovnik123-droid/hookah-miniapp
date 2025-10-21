@@ -64,6 +64,13 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
+    // --- Telegram Admin Check ---
+const tg = window.Telegram?.WebApp;
+const userId = tg?.initDataUnsafe?.user?.id || 0;
+// Включи строку ниже при локальном тесте (через браузер, не через Telegram):
+// const userId = 504348666;
+const IS_ADMIN = userId === 504348666;
+// ----------------------------
     const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
     const slug=s=>s.toLowerCase().trim().split(' ').filter(Boolean).join('-').normalize('NFKD').replace(/[^a-zа-я0-9-]/gi,'');
@@ -153,7 +160,11 @@
 
       return <div className="container">
         <header className="title">Кальянный Миксер</header>
-        <div className="tabs">{['community','builder','admin'].map(v=><button key={v} className={"tab-btn"+(tab===v?' active':'')} onClick={()=>setTab(v)}>{v==='community'?'Миксы':v==='builder'?'Конструктор':'Админ'}</button>)}</div>
+        <div className="tabs">
+  <button className={"tab-btn"+(tab==='community'?' active':'')} onClick={()=>setTab('community')}>Миксы</button>
+  <button className={"tab-btn"+(tab==='builder'?' active':'')} onClick={()=>setTab('builder')}>Конструктор</button>
+  {IS_ADMIN && <button className={"tab-btn"+(tab==='admin'?' active':'')} onClick={()=>setTab('admin')}>Админ</button>}
+</div>
 
         {tab==='community'&&<div className="card"><div className="hd"><h3>Рекомендации</h3><p className="desc">Выберите настроение и крепость</p></div><div className="bd">
           <div className="grid-2"><button className={"btn "+(pref==='all'?'accent':'')} onClick={()=>setPref('all')}>Все</button>{["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"].map(t=><button key={t} className={"btn "+(pref===t?'accent':'')} onClick={()=>setPref(t)}>{t}</button>)}</div>
@@ -183,7 +194,7 @@
           <div className="card"><div className="hd"><h3>Итоговый вкус</h3><p className="desc">Короткое описание</p></div><div className="bd">{parts.length===0?<div className="muted">Ещё нет выбранных вкусов.</div>:<div className="taste-line">{smartDesc(parts)}</div>}</div></div>
         </>}
 
-        {tab==='admin'&&<>
+        {IS_ADMIN && tab==='admin'&&<>
           <div className="card"><div className="hd"><h3>Бренды</h3><p className="desc">Добавление / скрытие / удаление</p></div><div className="bd">
             <div className="row"><input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/><button className="btn" onClick={addBrand}>Добавить</button></div>
             <div className="space"></div>
