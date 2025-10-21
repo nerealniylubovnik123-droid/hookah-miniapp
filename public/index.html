@@ -110,20 +110,7 @@ try {
 var IS_ADMIN = (CURRENT_USER_ID === 504348666);
 // -------------------------------------------------------------
 
-    // --- Telegram Admin Check (safe, no optional chaining) ---
-    var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
-    var userId = 0;
-    try {
-      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-        userId = tg.initDataUnsafe.user.id;
-      }
-    } catch(e){ userId = 0; }
-    // Включи строку ниже для локального теста (отключи в проде):
-    // userId = 504348666;
-    var IS_ADMIN = (userId === 504348666);
-    // --------------------------------------------------------
-
-    const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
+      const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
     const slug=s=>s.toLowerCase().trim().split(' ').filter(Boolean).join('-').normalize('NFKD').replace(/[^a-zа-я0-9-]/gi,'');
     const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
