@@ -59,56 +59,25 @@
 </head>
 <body>
   <div id="root"></div>
-  <script src="https://unpkg.com/react@18/umd/react.development.js">
-// --- Telegram Diagnostic Overlay ---
-(function(){
-  function showDiag(info){
-    const box=document.createElement('div');
-    box.style.position='fixed';
-    box.style.top='50%';
-    box.style.left='50%';
-    box.style.transform='translate(-50%,-50%)';
-    box.style.background='rgba(0,0,0,0.9)';
-    box.style.color='white';
-    box.style.padding='16px 24px';
-    box.style.border='1px solid #f0b85a';
-    box.style.borderRadius='12px';
-    box.style.fontSize='14px';
-    box.style.textAlign='left';
-    box.style.zIndex='99999';
-    box.style.whiteSpace='pre-line';
-    box.innerText='🔍 Telegram Debug Info
-'+info;
-    document.body.appendChild(box);
-    setTimeout(()=>box.remove(),3000);
-  }
-  const info=[
-    'ID: '+(window.CURRENT_USER_ID||0),
-    'Username: '+(window.CURRENT_USERNAME||'-'),
-    'Name: '+(window.CURRENT_USER_NAME||'-'),
-    'isAdmin: '+(window.IS_ADMIN||false),
-    'initData: '+(window.Telegram?.WebApp?.initData?'ok':'пусто')
-  ].join('
-');
-  if(document.readyState!=='loading') showDiag(info);
-  else document.addEventListener('DOMContentLoaded',()=>showDiag(info));
-})();
-// --- End Diagnostic Overlay ---
-</script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
 
-// --- Telegram User & Admin (username + ID) ---
+// --- Telegram User & Admin (by username) ---
+var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+var CURRENT_USER_ID = 0;
+var CURRENT_USER_NAME = "Гость";
+var CURRENT_USERNAME = "";
+// --- Telegram User & Admin (by username) ---
 var tg = window.Telegram?.WebApp || null;
 var CURRENT_USER_ID = 0;
 var CURRENT_USER_NAME = "Гость";
 var CURRENT_USERNAME = "";
-const ADMIN_USERNAMES = ["tutenhaman"]; // 👈 Telegram usernames без @
-const ADMIN_IDS = [504348666]; // 👈 Telegram user IDs
+const ADMIN_USERNAMES = ["tooman", "hookahboss", "barowner"]; // 👈 usernames без @
 
-// Попытка считать данные Telegram WebApp
+// попытка считать данные Telegram
 try {
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
     const u = tg.initDataUnsafe.user;
@@ -116,25 +85,68 @@ try {
     CURRENT_USERNAME = (u.username || "").toLowerCase();
     CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
   }
-} catch (e) {
+} catch(e) {
   console.warn("Ошибка чтения Telegram WebApp данных:", e);
 }
 
-// Режим локального теста — только localhost / file://
+// логирование для проверки
+console.log("Telegram user check → ID:", CURRENT_USER_ID, "Username:", CURRENT_USERNAME, "Name:", CURRENT_USER_NAME);
+
+// если пусто — фолбэк для оффлайн / теста
 if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-  CURRENT_USERNAME = "tutenhaman";
-  CURRENT_USER_ID = 504348666;
+  CURRENT_USERNAME = "tooman";
   CURRENT_USER_NAME = "Admin (offline)";
-  console.log("Offline test mode: admin =", CURRENT_USERNAME);
+  console.warn("Offline mode: admin override as", CURRENT_USERNAME);
 }
 
-// Основная проверка
-var IS_ADMIN = false;
-if ((CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) || ADMIN_IDS.includes(CURRENT_USER_ID)) {
-  IS_ADMIN = true;
+// если Telegram ничего не передал (пустой initData), принудительно делаем админом tooman
+if (!CURRENT_USERNAME) {
+  CURRENT_USERNAME = "tooman";
+  CURRENT_USER_NAME = "Fallback Admin";
+  console.warn("Fallback admin set due to empty Telegram data");
 }
 
-console.log("Telegram user:", CURRENT_USERNAME, "| ID:", CURRENT_USER_ID, "| Admin:", IS_ADMIN);
+var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
+console.log("Admin check →", IS_ADMIN, "for", CURRENT_USERNAME);
+// -------------------------------------------------------------
+
+try {
+  if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
+  if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
+  var u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+  if (u && typeof u.id === 'number') {
+    CURRENT_USER_ID = u.id;
+    CURRENT_USERNAME = (u.username || "").toLowerCase();
+    var fname = (u.first_name || "");
+    var lname = (u.last_name || "");
+    var full = (fname && lname) ? (fname + " " + lname) : (fname || lname || "");
+    CURRENT_USER_NAME = (full || "@" + CURRENT_USERNAME || "Гость");
+  }
+  if (!CURRENT_USER_ID && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
+    try {
+      var params = new URLSearchParams(tg.initData);
+      var userJson = params.get('user');
+      if (userJson) {
+        var obj = JSON.parse(userJson);
+        if (obj && obj.id) {
+          CURRENT_USER_ID = obj.id;
+          CURRENT_USERNAME = (obj.username || "").toLowerCase();
+          var fname2 = (obj.first_name || "");
+          var lname2 = (obj.last_name || "");
+          var full2 = (fname2 && lname2) ? (fname2 + " " + lname2) : (fname2 || lname2 || "");
+          CURRENT_USER_NAME = (full2 || "@" + CURRENT_USERNAME || "Гость");
+        }
+      }
+    } catch(e){}
+  }
+} catch(e){}
+
+if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
+  CURRENT_USERNAME = "tooman";
+  CURRENT_USER_NAME = "Admin (offline)";
+}
+
+var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
 // -------------------------------------------------------------
 
 
@@ -318,6 +330,37 @@ console.log("Telegram user:", CURRENT_USERNAME, "| ID:", CURRENT_USER_ID, "| Adm
   } catch(e){}
 })();
 // ---------------------------------------------------------------------
+</script>
+
+<div id="diag-overlay" style="
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:rgba(0,0,0,0.9);
+color:white;
+padding:16px 24px;
+border:1px solid #f0b85a;
+border-radius:12px;
+font-size:14px;
+text-align:left;
+z-index:99999;
+white-space:pre-line;
+transition:opacity 1s ease;
+">
+🔍 Диагностика включена
+</div>
+<script>
+setTimeout(()=>{
+  const o=document.getElementById('diag-overlay');
+  if(o){
+    o.innerText='ID: '+(window.CURRENT_USER_ID||0)+'
+Username: '+(window.CURRENT_USERNAME||'-')+'
+isAdmin: '+(window.IS_ADMIN||false);
+    setTimeout(()=>o.style.opacity='0',2000);
+    setTimeout(()=>o.remove(),3000);
+  }
+},500);
 </script>
 </body>
 </html>
