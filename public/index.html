@@ -65,13 +65,13 @@
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
 
-
-// --- Telegram User & Admin (by username) ---
+// --- Telegram User & Admin (username + ID) ---
 var tg = window.Telegram?.WebApp || null;
 var CURRENT_USER_ID = 0;
 var CURRENT_USER_NAME = "Гость";
 var CURRENT_USERNAME = "";
-const ADMIN_USERNAMES = ["tutenhaman"]; // 👈 только username без @
+const ADMIN_USERNAMES = ["tutenhaman"]; // 👈 Telegram usernames без @
+const ADMIN_IDS = [504348666]; // 👈 Telegram user IDs
 
 // Попытка считать данные Telegram WebApp
 try {
@@ -88,57 +88,18 @@ try {
 // Режим локального теста — только localhost / file://
 if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
   CURRENT_USERNAME = "tutenhaman";
+  CURRENT_USER_ID = 504348666;
   CURRENT_USER_NAME = "Admin (offline)";
   console.log("Offline test mode: admin =", CURRENT_USERNAME);
 }
 
-// Основная проверка — только если реально пришло имя
+// Основная проверка
 var IS_ADMIN = false;
-if (CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) {
+if ((CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) || ADMIN_IDS.includes(CURRENT_USER_ID)) {
   IS_ADMIN = true;
 }
 
-console.log("Telegram user:", CURRENT_USERNAME, "| Admin:", IS_ADMIN);
-// -------------------------------------------------------------
-
-
-try {
-  if (tg && typeof tg.ready === 'function') { try { tg.ready(); } catch(e){} }
-  if (tg && typeof tg.expand === 'function') { try { tg.expand(); } catch(e){} }
-  var u = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
-  if (u && typeof u.id === 'number') {
-    CURRENT_USER_ID = u.id;
-    CURRENT_USERNAME = (u.username || "").toLowerCase();
-    var fname = (u.first_name || "");
-    var lname = (u.last_name || "");
-    var full = (fname && lname) ? (fname + " " + lname) : (fname || lname || "");
-    CURRENT_USER_NAME = (full || "@" + CURRENT_USERNAME || "Гость");
-  }
-  if (!CURRENT_USER_ID && tg && typeof tg.initData === 'string' && tg.initData.length > 0) {
-    try {
-      var params = new URLSearchParams(tg.initData);
-      var userJson = params.get('user');
-      if (userJson) {
-        var obj = JSON.parse(userJson);
-        if (obj && obj.id) {
-          CURRENT_USER_ID = obj.id;
-          CURRENT_USERNAME = (obj.username || "").toLowerCase();
-          var fname2 = (obj.first_name || "");
-          var lname2 = (obj.last_name || "");
-          var full2 = (fname2 && lname2) ? (fname2 + " " + lname2) : (fname2 || lname2 || "");
-          CURRENT_USER_NAME = (full2 || "@" + CURRENT_USERNAME || "Гость");
-        }
-      }
-    } catch(e){}
-  }
-} catch(e){}
-
-if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-  CURRENT_USERNAME = "tooman";
-  CURRENT_USER_NAME = "Admin (offline)";
-}
-
-var IS_ADMIN = ADMIN_USERNAMES.includes(CURRENT_USERNAME);
+console.log("Telegram user:", CURRENT_USERNAME, "| ID:", CURRENT_USER_ID, "| Admin:", IS_ADMIN);
 // -------------------------------------------------------------
 
 
