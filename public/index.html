@@ -64,13 +64,19 @@
   <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
-    // --- Telegram Admin Check ---
-const tg = window.Telegram?.WebApp;
-const userId = tg?.initDataUnsafe?.user?.id || 0;
-// Включи строку ниже при локальном тесте (через браузер, не через Telegram):
-// const userId = 504348666;
-const IS_ADMIN = userId === 504348666;
-// ----------------------------
+    // --- Telegram Admin Check (safe, no optional chaining) ---
+    var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    var userId = 0;
+    try {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        userId = tg.initDataUnsafe.user.id;
+      }
+    } catch(e){ userId = 0; }
+    // Включи строку ниже для локального теста (отключи в проде):
+    // userId = 504348666;
+    var IS_ADMIN = (userId === 504348666);
+    // --------------------------------------------------------
+
     const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
     const slug=s=>s.toLowerCase().trim().split(' ').filter(Boolean).join('-').normalize('NFKD').replace(/[^a-zа-я0-9-]/gi,'');
@@ -146,7 +152,7 @@ const IS_ADMIN = userId === 504348666;
       const gresults=useMemo(()=>{const q=gqd.trim().toLowerCase();if(!q)return[];return brands.filter(b=>!b.hidden).map(b=>({brand:b,flavors:b.flavors.filter(f=>!f.hidden).filter(f=>f.name.toLowerCase().includes(q)||f.taste.toLowerCase().includes(q))})).filter(g=>g.flavors.length>0)},[gqd,brands]);
 
       // admin
-      const [brandName,setBrandName]=useState(""); const [brandForFlavor,setBrandForFlavor]=useState(brands[0]?.id||"");
+      const [brandName,setBrandName]=useState(""); const [brandForFlavor,setBrandForFlavor]=useState((brands[0] && brands[0].id)||"");
       const [flavorName,setFlavorName]=useState(""); const [flavorStrength,setFlavorStrength]=useState(5); const [flavorTaste,setFlavorTaste]=useState("");
       const [banInput,setBanInput]=useState("");
       const addBrand=()=>{const name=brandName.trim();if(!name)return;const id=slug(name);if(brands.some(b=>b.id===id))return;const next=[...brands,{id,name,hidden:false,flavors:[]}];setBrands(next);setBrandName("");if(!brandForFlavor)setBrandForFlavor(id)};
