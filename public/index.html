@@ -306,28 +306,69 @@ font-size:13px;
 text-align:left;
 z-index:99999;
 white-space:pre-line;
+max-width:90vw;
 ">
-🔍 Расширенная диагностика Telegram API
+🔍 Расширенная диагностика Telegram API (v2)
 </div>
 <script>
-try {
-  const o = document.getElementById('diag-overlay');
-  const tg = window.Telegram;
-  const wa = tg?.WebApp;
-  const init = wa?.initDataUnsafe;
-  const user = init?.user;
-  const lines = [
-    'Telegram object: ' + !!tg,
-    'WebApp object: ' + !!wa,
-    'initDataUnsafe exists: ' + !!init,
-    'user exists: ' + !!user,
-    'Raw initDataUnsafe: ' + JSON.stringify(init || null, null, 2)
-  ];
-  o.textContent = lines.join('
+(function(){
+  function safe(obj, path){
+    try {
+      var parts = path.split('.');
+      var cur = obj;
+      for (var i=0;i<parts.length;i++){
+        if (!cur) return null;
+        cur = cur[parts[i]];
+      }
+      return cur;
+    } catch(e){ return null; }
+  }
+  function stringify(obj){
+    try { return JSON.stringify(obj, null, 2); } catch(e){ return String(obj); }
+  }
+  function update(){
+    var o = document.getElementById('diag-overlay');
+    if (!o) return;
+    var tg = window.Telegram;
+    var wa = tg ? tg.WebApp : null;
+    try { if (wa && typeof wa.ready === 'function') wa.ready(); } catch(e){}
+    try { if (wa && typeof wa.expand === 'function') wa.expand(); } catch(e){}
+    var initUnsafe = wa ? wa.initDataUnsafe : null;
+    var init = wa ? wa.initData : null;
+    var user = initUnsafe ? initUnsafe.user : null;
+    var id = user && user.id ? user.id : 0;
+    var uname = user && user.username ? user.username : "";
+    var fname = user && user.first_name ? user.first_name : "";
+    var lname = user && user.last_name ? user.last_name : "";
+    var lines = [
+      'Telegram object: ' + (!!tg),
+      'WebApp object: ' + (!!wa),
+      'initDataUnsafe present: ' + (!!initUnsafe),
+      'initData present (string): ' + (typeof init === 'string' && init.length>0),
+      'user present: ' + (!!user),
+      'user.id: ' + id,
+      'user.username: ' + (uname || '-'),
+      'user.first_name: ' + (fname || '-'),
+      'user.last_name: ' + (lname || '-'),
+      '',
+      'Raw initDataUnsafe:',
+      stringify(initUnsafe),
+      '',
+      'Location: ' + location.href,
+      'UserAgent: ' + navigator.userAgent
+    ];
+    o.textContent = lines.join('
 ');
-} catch (e) {
-  document.getElementById('diag-overlay').textContent = 'Ошибка диагностики: ' + e;
-}
+  }
+  // initial + follow-up updates (some clients delay filling initData)
+  update();
+  setTimeout(update, 800);
+  setTimeout(update, 1600);
+  setTimeout(function(){
+    var o=document.getElementById('diag-overlay');
+    if(o){ o.style.transition='opacity 1s ease'; o.style.opacity='0'; setTimeout(function(){ try{ o.remove(); }catch(e){} }, 1200); }
+  }, 3200);
+})();
 </script>
 </body>
 </html>
