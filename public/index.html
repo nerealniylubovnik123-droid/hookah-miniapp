@@ -24,6 +24,12 @@
       color: #f0e9db;
     }
     .hidden { display: none; }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -34,7 +40,6 @@
   <div id="root" class="hidden"></div>
 
   <script>
-    // === Telegram WebApp инициализация ===
     async function initTelegram() {
       try {
         if (!window.Telegram || !window.Telegram.WebApp) {
@@ -45,8 +50,6 @@
 
         const tg = window.Telegram.WebApp;
         tg.ready();
-
-        // ждём, пока WebApp полностью инициализируется
         await new Promise(r => setTimeout(r, 150));
 
         const user = tg.initDataUnsafe?.user || null;
@@ -58,41 +61,46 @@
           return;
         }
 
-        // определяем имя и роль
         const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || `User ${user.id}`;
-        const isAdmin = user.username === "Tutenhaman";
+        const isAdmin = (user.username || "").toLowerCase() === "tutenhaman";
 
         window.HOOKAH_USER = { id: String(user.id), username: user.username || "", name: fullName };
         window.HOOKAH_IS_ADMIN = isAdmin;
 
         console.log("⭐ Admin status:", isAdmin);
-
         document.getElementById("root").classList.remove("hidden");
         loadReactApp();
-
       } catch (err) {
         console.error("Telegram init error:", err);
         document.getElementById("telegram-check").classList.remove("hidden");
       }
     }
 
-    // === Загрузка React-приложения ===
     function loadReactApp() {
-      const scriptReact = document.createElement("script");
-      scriptReact.src = "https://unpkg.com/react@18/umd/react.development.js";
-      const scriptDOM = document.createElement("script");
-      scriptDOM.src = "https://unpkg.com/react-dom@18/umd/react-dom.development.js";
-      const scriptBabel = document.createElement("script");
-      scriptBabel.src = "https://unpkg.com/@babel/standalone/babel.min.js";
+      const scripts = [
+        "https://unpkg.com/react@18/umd/react.development.js",
+        "https://unpkg.com/react-dom@18/umd/react-dom.development.js",
+        "https://unpkg.com/@babel/standalone/babel.min.js"
+      ];
+      let loaded = 0;
+      function checkReady() {
+        loaded++;
+        if (loaded < scripts.length) return;
+        console.log("✅ React, ReactDOM и Babel загружены");
+        startApp();
+      }
+      scripts.forEach(src => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = checkReady;
+        document.body.appendChild(s);
+      });
 
-      document.body.append(scriptReact, scriptDOM, scriptBabel);
-
-      scriptBabel.onload = () => {
+      function startApp() {
         const appScript = document.createElement("script");
         appScript.type = "text/babel";
         appScript.textContent = `
           const { useState } = React;
-
           function App() {
             const user = window.HOOKAH_USER;
             const isAdmin = window.HOOKAH_IS_ADMIN;
@@ -110,20 +118,18 @@
                   {isAdmin && <button onClick={()=>setTab("admin")} style={tab==="admin"?{background:"#f0b85a",color:"#000"}:{background:"#151515",color:"#fff"}}>Админ</button>}
                 </div>
 
-                {tab==="mixes" && <div>📦 Раздел миксов гостей. Рекомендации и сохранённые миксы.</div>}
-                {tab==="builder" && <div>🧩 Конструктор миксов. Выбор брендов и вкусов, создание миксов.</div>}
-                {tab==="admin" && isAdmin && <div>⚙️ Админ-панель. Управление брендами, вкусами и запретами.</div>}
+                {tab==="mixes" && <div>📦 Раздел миксов гостей.</div>}
+                {tab==="builder" && <div>🧩 Конструктор миксов.</div>}
+                {tab==="admin" && isAdmin && <div>⚙️ Админ-панель.</div>}
               </div>
             );
           }
-
           ReactDOM.createRoot(document.getElementById("root")).render(<App />);
         `;
-        document.body.append(appScript);
-      };
+        document.body.appendChild(appScript);
+      }
     }
 
-    // === Запускаем инициализацию ===
     initTelegram();
   </script>
 </body>
