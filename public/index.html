@@ -193,15 +193,28 @@
         })
       };
       const removePart=key=>setParts(prev=>prev.filter(x=>x.key!==key));
-      const saveMix=()=>{
-        if(total!==100)return;
-        const id="mix-"+Date.now();
-        setMixes(prev=>[
-          {id,title:"Микс",description:"",parts,avgStrength:avg,likes:0,createdAt:Date.now(),author:CURRENT_USER_NAME},
-          ...prev
-        ]);
-        setParts([]);
-      };
+      const saveMix = () => {
+  if (total !== 100) return;
+
+  const title = prompt("Введите название вашего микса:");
+  if (!title) return; // отмена или пустое имя — не сохраняем
+
+  const id = "mix-" + Date.now();
+  setMixes(prev => [
+    {
+      id,
+      title: title.trim(),
+      description: "",
+      parts,
+      avgStrength: avg,
+      likes: 0,
+      createdAt: Date.now(),
+      author: CURRENT_USER_NAME
+    },
+    ...prev
+  ]);
+  setParts([]);
+};
 
       // --- ADMIN (полностью как в первом файле) ---
       const [brandName,setBrandName]=useState("");
