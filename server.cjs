@@ -34,7 +34,7 @@ app.get("/", (req, res) => {
 
 // === API для миксов через файл ===
 const fs = require("fs");
-const MIXES_FILE = process.env.MIXES_PATH || path.join(process.cwd(), "mixes.json");
+const MIXES_FILE = path.join(__dirname, "mixes.json");
 
 // Проверяем, есть ли файл, если нет — создаём пустой
 if (!fs.existsSync(MIXES_FILE)) {
