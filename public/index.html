@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Кальянный Миксер — Enhanced Stable</title>
 
-  <!-- ✅ Telegram WebApp SDK (как в старом рабочем файле) -->
+  <!-- ✅ Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -28,6 +28,8 @@
     .btn{background:#1f1f1f;border:1px solid #2a2a2a;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border}
     .btn:hover{transform:translateY(-1px)} .btn:active{transform:translateY(0) scale(.98)}
     .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)} .btn.small{padding:4px 8px;font-size:12px;border-radius:8px}
+    .btn.ghost{background:transparent;border-color:#2a2a2a}
+    .btn.danger{background:#3a0d0d;border-color:#5a1a1a;color:#ffbaba}
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px} .grid{display:grid;gap:8px}
     .brand-btn{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border;text-align:center}
     .brand-btn:hover{transform:translateY(-1px)} .brand-btn:active{transform:translateY(0) scale(.98)} .brand-btn.active{background:var(--accent);border-color:var(--accent);color:#000}
@@ -39,6 +41,10 @@
     .taste-line{font-size:13px;opacity:.92}
     .flavor-item{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
     input[type=range]{width:100%;accent-color:var(--accent)}
+    /* ➕ Бейджи статуса (как в старом файле) */
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-size:11px}
+    .badge.hidden{border-color:#503333;background:#2a1a1a;color:#ffbaba}
+    .badge.ok{border-color:#2c4737;background:#16271d;color:#bff5d6}
   </style>
 </head>
 <body>
@@ -52,33 +58,42 @@
   <script type="text/babel" data-presets="react">
     const {useState,useMemo,useEffect} = React;
 
-    // === AUTH: функция из твоего старого файла (безопасное чтение Telegram WebApp) ===
-    const state = {
-      user: null,
-      // (остальное состояние ниже по коду)
-    };
+    // === AUTH: надёжная идентификация админа (как в старом файле) ===
+    var tg = window.Telegram?.WebApp || null;
+    var CURRENT_USER_ID = 0;
+    var CURRENT_USER_NAME = "Гость";
+    var CURRENT_USERNAME = "";
+    const ADMIN_USERNAMES = ["tutenhaman"]; // usernames без @ (в нижнем регистре)
+    const ADMIN_IDS = [504348666];          // Telegram user IDs
 
-    function initAuth(){
-      try{
-        const u = window?.Telegram?.WebApp?.initDataUnsafe?.user;
-        if(u){
-          const name = [u.first_name,u.last_name].filter(Boolean).join(' ') || u.username || ('User '+u.id);
-          state.user = { id:String(u.id), name, username:u.username };
-          return;
-        }
-      }catch(_){}
-      // fallback: гость
-      state.user = { id:'anon', name:'Гость' };
+    try {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        const u = tg.initDataUnsafe.user;
+        CURRENT_USER_ID = u.id || 0;
+        CURRENT_USERNAME = (u.username || "").toLowerCase();
+        CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
+      }
+    } catch (e) {
+      console.warn("Ошибка чтения Telegram WebApp данных:", e);
     }
-    // ВАЖНО: вызываем до старта приложения
-    initAuth();
 
-    // === Утилиты и данные (как в твоём первом файле) ===
+    // Локальный оффлайн-тест
+    if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
+      CURRENT_USERNAME = "tutenhaman";
+      CURRENT_USER_ID = 504348666;
+      CURRENT_USER_NAME = "Admin (offline)";
+      console.log("Offline test mode: admin =", CURRENT_USERNAME);
+    }
+
+    const IS_ADMIN = (CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) || ADMIN_IDS.includes(CURRENT_USER_ID);
+
+    // === Утилиты и данные ===
     const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
     const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
     const slug=s=>s.toLowerCase().trim().split(' ').filter(Boolean).join('-').normalize('NFKD').replace(/[^a-zа-я0-9-]/gi,'');
     const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
     const calcAvg=ps=>Math.round(ps.reduce((a,b)=>a+b.percent*b.strength,0)/ps.reduce((a,b)=>a+b.percent,0));
+    const useDebouncedValue=(value,delay=220)=>{const [v,setV]=useState(value);useEffect(()=>{const id=setTimeout(()=>setV(value),delay);return()=>clearTimeout(id)},[value,delay]);return v};
 
     function smartDesc(parts){
       if(!parts.length)return"";
@@ -92,8 +107,6 @@
     }
 
     function App(){
-      const IS_ADMIN = state?.user?.username === "Tutenhaman"; // 👈 админ по username
-
       const [tab,setTab]=useState('community');
 
       const seed=[
@@ -121,23 +134,37 @@
       useEffect(()=>save("h.banned",banned),[banned]);
       useEffect(()=>save("h.mixes.v3",mixes),[mixes]);
 
-      useEffect(()=>{if(mixes.length===0){const m1=[
-        {key:"musthave:raspberry",brandId:"musthave",flavorId:"raspberry",name:"Raspberry",percent:60,strength:3,taste:"ягодный, кисловатый"},
-        {key:"alfakher:mint",brandId:"alfakher",flavorId:"mint",name:"Mint",percent:40,strength:2,taste:"свежий, мятный"}
-      ];const m2=[
-        {key:"alfakher:double-apple",brandId:"alfakher",flavorId:"double-apple",name:"Double Apple",percent:50,strength:3,taste:"анисовый, яблочный"},
-        {key:"darkside:spiced-rum",brandId:"darkside",flavorId:"spiced-rum",name:"Spiced Rum",percent:50,strength:7,taste:"пряный, алкогольный"}
-      ];setMixes([{id:"ex1",title:"Лесные ягоды",author:"Гость Аня",parts:m1,avgStrength:calcAvg(m1),likes:0,createdAt:Date.now()},{id:"ex2",title:"Яблочный пряный",author:"Гость Макс",parts:m2,avgStrength:calcAvg(m2),likes:0,createdAt:Date.now()}])}},[]);
+      useEffect(()=>{if(mixes.length===0){
+        const m1=[
+          {key:"musthave:raspberry",brandId:"musthave",flavorId:"raspberry",name:"Raspberry",percent:60,strength:3,taste:"ягодный, кисловатый"},
+          {key:"alfakher:mint",brandId:"alfakher",flavorId:"mint",name:"Mint",percent:40,strength:2,taste:"свежий, мятный"}
+        ];
+        const m2=[
+          {key:"alfakher:double-apple",brandId:"alfakher",flavorId:"double-apple",name:"Double Apple",percent:50,strength:3,taste:"анисовый, яблочный"},
+          {key:"darkside:spiced-rum",brandId:"darkside",flavorId:"spiced-rum",name:"Spiced Rum",percent:50,strength:7,taste:"пряный, алкогольный"}
+        ];
+        setMixes([
+          {id:"ex1",title:"Лесные ягоды",author:"Гость Аня",parts:m1,avgStrength:calcAvg(m1),likes:0,createdAt:Date.now()},
+          {id:"ex2",title:"Яблочный пряный",author:"Гость Макс",parts:m2,avgStrength:calcAvg(m2),likes:0,createdAt:Date.now()}
+        ]);
+      }},[]);
 
       // community
       const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
-      const [pref,setPref]=useState('all'); const [strength,setStrength]=useState(5); const [likes,setLikes]=useState({});
-      const rec=mixes.filter(m=>pref==='all'||m.parts.some(p=>p.taste.toLowerCase().includes(pref))).filter(m=>Math.abs(m.avgStrength-strength)<=1);
-      const toggleLike=id=>{setMixes(ms=>ms.map(m=>m.id===id?{...m,likes:m.likes+(likes[id]?-1:1)}:m));setLikes(s=>{const n={...s};if(n[id])delete n[id];else n[id]=1;return n})};
+      const [pref,setPref]=useState('all');
+      const [strength,setStrength]=useState(5);
+      const [likes,setLikes]=useState({});
+      const rec=mixes
+        .filter(m=>pref==='all'||m.parts.some(p=>p.taste.toLowerCase().includes(pref)))
+        .filter(m=>Math.abs(m.avgStrength-strength)<=1);
+      const toggleLike=id=>{
+        setMixes(ms=>ms.map(m=>m.id===id?{...m,likes:m.likes+(likes[id]?-1:1)}:m));
+        setLikes(s=>{const n={...s};if(n[id])delete n[id];else n[id]=1;return n});
+      };
 
       // builder
       const [selected,setSelected]=useState(null);
-      const [search,setSearch]=useState(""); 
+      const [search,setSearch]=useState("");
       const [parts,setParts]=useState([]);
       const selectedBrand=useMemo(()=>brands.find(b=>b.id===selected)||null,[selected,brands]);
       const total=parts.reduce((a,b)=>a+b.percent,0);
@@ -147,10 +174,73 @@
       const filtered=selectedBrand?selectedBrand.flavors.filter(f=>!f.hidden).filter(f=>{
         const q=search.toLowerCase();return f.name.toLowerCase().includes(q)||f.taste.toLowerCase().includes(q);
       }):[];
-      const addFlavor=(brandId,fl)=>{if(remaining<=0)return;const key=`${brandId}:${fl.id}`;setParts(prev=>{if(prev.some(p=>p.key===key))return prev;const defPct=Math.min(10,Math.max(0,100-prev.reduce((a,b)=>a+b.percent,0)));if(defPct<=0)return prev;return[...prev,{key,brandId,flavorId:fl.id,name:fl.name,taste:fl.taste,strength:fl.strength,percent:defPct}]})};
-      const updatePct=(key,val)=>{setParts(prev=>{const sumOthers=prev.reduce((a,b)=>a+(b.key===key?0:b.percent),0);const allowed=Math.max(0,100-sumOthers);const clamped=clamp(Math.round(val),0,allowed);return prev.map(x=>x.key===key?{...x,percent:clamped}:x)})};
+      const addFlavor=(brandId,fl)=>{
+        if(remaining<=0)return;
+        const key=`${brandId}:${fl.id}`;
+        setParts(prev=>{
+          if(prev.some(p=>p.key===key))return prev;
+          const defPct=Math.min(10,Math.max(0,100-prev.reduce((a,b)=>a+b.percent,0)));
+          if(defPct<=0)return prev;
+          return[...prev,{key,brandId,flavorId:fl.id,name:fl.name,taste:fl.taste,strength:fl.strength,percent:defPct}]
+        })
+      };
+      const updatePct=(key,val)=>{
+        setParts(prev=>{
+          const sumOthers=prev.reduce((a,b)=>a+(b.key===key?0:b.percent),0);
+          const allowed=Math.max(0,100-sumOthers);
+          const clamped=clamp(Math.round(val),0,allowed);
+          return prev.map(x=>x.key===key?{...x,percent:clamped}:x)
+        })
+      };
       const removePart=key=>setParts(prev=>prev.filter(x=>x.key!==key));
-      const saveMix=()=>{if(total!==100)return;const id="mix-"+Date.now();setMixes(prev=>[{id,title:"Микс",description:"",parts,avgStrength:avg,likes:0,createdAt:Date.now(),author:state.user?.name||"Гость"},...prev]);setParts([])};
+      const saveMix=()=>{
+        if(total!==100)return;
+        const id="mix-"+Date.now();
+        setMixes(prev=>[
+          {id,title:"Микс",description:"",parts,avgStrength:avg,likes:0,createdAt:Date.now(),author:CURRENT_USER_NAME},
+          ...prev
+        ]);
+        setParts([]);
+      };
+
+      // --- ADMIN (полностью как в первом файле) ---
+      const [brandName,setBrandName]=useState("");
+      const [brandForFlavor,setBrandForFlavor]=useState((brands[0] && brands[0].id)||"");
+      const [flavorName,setFlavorName]=useState("");
+      const [flavorStrength,setFlavorStrength]=useState(5);
+      const [flavorTaste,setFlavorTaste]=useState("");
+      const [banInput,setBanInput]=useState("");
+
+      const addBrand=()=>{
+        const name=brandName.trim(); if(!name)return;
+        const id=slug(name); if(brands.some(b=>b.id===id))return;
+        const next=[...brands,{id,name,hidden:false,flavors:[]}];
+        setBrands(next); setBrandName(""); if(!brandForFlavor)setBrandForFlavor(id);
+      };
+      const addFlavorAdmin=()=>{
+        const b=brands.find(x=>x.id===brandForFlavor); if(!b)return;
+        const name=flavorName.trim(); if(!name)return;
+        const id=slug(name); if(b.flavors.some(f=>f.id===id))return;
+        const st=clamp(Math.round(flavorStrength),1,10);
+        const fl={id,name,strength:st,taste:flavorTaste.trim(),hidden:false};
+        setBrands(brands.map(x=>x.id===b.id?{...x,flavors:[...x.flavors,fl]}:x));
+        setFlavorName(""); setFlavorTaste("");
+      };
+      const toggleBrandHidden=id=>setBrands(prev=>prev.map(b=>b.id===id?{...b,hidden:!b.hidden}:b));
+      const toggleFlavorHidden=(bid,fid)=>setBrands(prev=>prev.map(b=>b.id===bid?{...b,flavors:b.flavors.map(f=>f.id===fid?{...f,hidden:!f.hidden}:f)}:b));
+      const delBrand=id=>{
+        const next=brands.filter(b=>b.id!==id);
+        setBrands(next);
+        if(brandForFlavor===id)setBrandForFlavor(next[0]?.id||"");
+        if(selected===id)setSelected(null);
+      };
+      const delFlavor=(bid,fid)=>setBrands(prev=>prev.map(b=>b.id!==bid?b:{...b,flavors:b.flavors.filter(f=>f.id!==fid)}));
+      const addBan=()=>{
+        const w=banInput.trim().toLowerCase(); if(!w)return;
+        if(banned.includes(w))return;
+        setBanned([...banned,w]); setBanInput("");
+      };
+      const delBan=w=>setBanned(banned.filter(x=>x!==w));
 
       return (
         <div className="container">
@@ -232,6 +322,7 @@
               <div className="card">
                 <div className="hd"><h3>Ваш микс</h3><p className="desc">Сумма должна быть 100%</p></div>
                 <div className="bd grid">
+                  {parts.length===0 && <div className="tiny muted">Добавьте вкусы из списка выше.</div>}
                   {parts.map(p=>(
                     <div key={p.key} className="mix-card">
                       <div className="row between">
@@ -242,7 +333,7 @@
                         <button className="btn" onClick={()=>removePart(p.key)}>удалить</button>
                       </div>
                       <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e=>updatePct(p.key,parseInt(e.target.value))}/>
-                      <div className="tiny muted">доля: <b>{p.percent}%</b></div>
+                      <div className="row between tiny muted"><span>0%</span><span>{p.percent}%</span><span>100%</span></div>
                     </div>
                   ))}
                   <div className="sep"></div>
@@ -253,14 +344,108 @@
                   <button className={"btn "+(total===100?'accent':'')} onClick={saveMix} disabled={total!==100}>Сохранить</button>
                 </div>
               </div>
+
+              <div className="card">
+                <div className="hd"><h3>Итоговый вкус</h3><p className="desc">Короткое описание</p></div>
+                <div className="bd">{parts.length===0?<div className="muted">Ещё нет выбранных вкусов.</div>:<div className="taste-line">{smartDesc(parts)}</div>}</div>
+              </div>
             </>
           )}
 
-          {tab==='admin' && IS_ADMIN && (
-            <div className="card">
-              <div className="hd"><h3>Админ-панель</h3><p className="desc">Управление брендами, вкусами и запретами</p></div>
-              <div className="bd">…твой существующий функционал тут…</div>
-            </div>
+          {IS_ADMIN && tab==='admin' && (
+            <>
+              <div className="card">
+                <div className="hd"><h3>Бренды</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+                <div className="bd">
+                  <div className="row">
+                    <input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/>
+                    <button className="btn" onClick={addBrand}>Добавить</button>
+                  </div>
+                  <div className="space"></div>
+                  <div className="grid-2">
+                    {brands.map(b=>(
+                      <div key={b.id} className="mix-card">
+                        <div className="row between">
+                          <div>
+                            <div style={{fontWeight:600}}>{b.name}</div>
+                            <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                            {b.hidden?<div className="badge hidden">скрыт</div>:<div className="badge ok">доступен</div>}
+                          </div>
+                          <div className="grid">
+                            <button className="btn small ghost" onClick={()=>toggleBrandHidden(b.id)}>{b.hidden?"показать":"скрыть"}</button>
+                            <button className="btn small danger" onClick={()=>delBrand(b.id)}>удалить</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="hd"><h3>Вкусы</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+                <div className="bd">
+                  <div className="grid-2">
+                    <select className="input" value={brandForFlavor} onChange={e=>setBrandForFlavor(e.target.value)}>
+                      {brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e=>setFlavorName(e.target.value)}/>
+                  </div>
+                  <div className="space"></div>
+                  <div className="row between">
+                    <div>Крепость: <b>{flavorStrength}</b></div>
+                    <input type="range" min="1" max="10" value={flavorStrength} onChange={e=>setFlavorStrength(parseInt(e.target.value))}/>
+                  </div>
+                  <div className="space"></div>
+                  <input className="input" placeholder="Описание вкуса (направления)" value={flavorTaste} onChange={e=>setFlavorTaste(e.target.value)}/>
+                  <div className="space"></div>
+                  <div className="row" style={{justifyContent:'flex-end'}}><button className="btn" onClick={addFlavorAdmin}>Добавить вкус</button></div>
+
+                  {brands.find(b=>b.id===brandForFlavor) && (
+                    <>
+                      <div className="sep"></div>
+                      <div className="muted">Вкусы бренда: {brands.find(b=>b.id===brandForFlavor).name}</div>
+                      <div className="space"></div>
+                      <div className="grid">
+                        {brands.find(b=>b.id===brandForFlavor).flavors.map(f=>(
+                          <div key={f.id} className="flavor-item">
+                            <div>
+                              <div style={{fontWeight:600}}>{f.name}</div>
+                              <div className="tiny muted">крепость: {f.strength} • вкус: {f.taste}</div>
+                              {f.hidden && <div className="badge hidden">скрыт</div>}
+                            </div>
+                            <div className="row">
+                              <button className="btn small ghost" onClick={()=>toggleFlavorHidden(brandForFlavor,f.id)}>{f.hidden?"показать":"скрыть"}</button>
+                              <button className="btn small danger" onClick={()=>delFlavor(brandForFlavor,f.id)}>удалить</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="hd"><h3>Запрещённые слова</h3></div>
+                <div className="bd">
+                  <div className="row">
+                    <input className="input" placeholder="например: 18+" value={banInput} onChange={e=>setBanInput(e.target.value)}/>
+                    <button className="btn" onClick={addBan}>Добавить</button>
+                  </div>
+                  <div className="space"></div>
+                  <div className="row" style={{flexWrap:'wrap',gap:'8px'}}>
+                    {banned.length===0 && <div className="muted tiny">Пусто</div>}
+                    {banned.map(w=>(
+                      <div key={w} className="badge">
+                        {w}
+                        <button className="btn tiny ghost" style={{marginLeft:'6px',padding:'2px 6px'}} onClick={()=>delBan(w)}>удалить</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       );
