@@ -501,7 +501,7 @@ html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
     var CURRENT_USER_ID = 0;
     var CURRENT_USER_NAME = "Гость";
     var CURRENT_USERNAME = "";
-    const ADMIN_USERNAMES = ["tutenhaman,Brgmnstrr"]; // usernames без @ (в нижнем регистре)
+    const ADMIN_USERNAMES = ["tutenhaman","Brgmnstrr"]; // usernames без @ (в нижнем регистре)
     const ADMIN_IDS = [504348666,2015942051];          // Telegram user IDs
 
     try {
@@ -517,7 +517,7 @@ html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
 
     // Локальный оффлайн-тест
     if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
-      CURRENT_USERNAME = "tutenhaman,Brgmnstrr";
+      CURRENT_USERNAME = "tutenhaman","Brgmnstrr";
       CURRENT_USER_ID = 504348666,2015942051;
       CURRENT_USER_NAME = "Admin (offline)";
       console.log("Offline test mode: admin =", CURRENT_USERNAME);
