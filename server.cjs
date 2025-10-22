@@ -23,12 +23,23 @@ const dbPromise = open({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// 📁 Раздаём статические файлы из public/
 app.use(express.static(path.join(__dirname, "public")));
 
+// ⚡ Добавлено: корень "/" теперь открывает welcome.html
 app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "welcome.html"));
+});
+
+// ✅ Основное приложение доступно по /app и /index.html
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+app.get("/index.html", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// 🚀 API для стоп-слов (без изменений)
 app.post("/api/stop-words", async (req, res) => {
   const { word } = req.body;
   if (!word) return res.status(400).json({ error: "Word is required" });
@@ -37,10 +48,12 @@ app.post("/api/stop-words", async (req, res) => {
   res.json({ success: true });
 });
 
+// API для проверки статуса (без изменений)
 app.get("/api/status", (req, res) => {
   res.json({ ok: true });
 });
 
+// Telegram уведомления (без изменений)
 async function notifyAdmins(message) {
   for (const id of ADMIN_TG_IDS) {
     try {
@@ -51,6 +64,7 @@ async function notifyAdmins(message) {
   }
 }
 
+// 🚀 Запуск сервера
 app.listen(PORT, () => {
   console.log(`✅ Server started on port ${PORT}`);
   console.log(`🌐 Open: http://localhost:${PORT}`);
