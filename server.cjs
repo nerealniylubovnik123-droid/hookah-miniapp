@@ -33,7 +33,7 @@ app.get("/", (req, res) => {
 });
 
 // === API для миксов через файл ===
-import fs from "fs";
+const fs = require("fs");
 const MIXES_FILE = process.env.MIXES_PATH || "/mnt/data/mixes.json";
 
 // Проверяем, есть ли файл, если нет — создаём пустой
