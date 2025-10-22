@@ -567,7 +567,14 @@ html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
 
       const [brands,setBrands]=useState(()=>load("h.brands.v3",seed));
       const [banned,setBanned]=useState(()=>load("h.banned",[]));
-      const [mixes,setMixes]=useState(()=>load("h.mixes.v3",[]));
+      const [mixes, setMixes] = useState([]);
+
+useEffect(() => {
+  fetch("/api/mix")
+    .then(r => r.json())
+    .then(setMixes)
+    .catch(err => console.error("Ошибка загрузки миксов:", err));
+}, []);
       useEffect(()=>save("h.brands.v3",brands),[brands]);
       useEffect(()=>save("h.banned",banned),[banned]);
       useEffect(()=>save("h.mixes.v3",mixes),[mixes]);
@@ -661,20 +668,19 @@ useEffect(() => {
   }
 
   const id = "mix-" + Date.now();
-  setMixes(prev => [
-    {
-      id,
-      title: title.trim(),
-      description: "",
-      parts,
-      avgStrength: avg,
-      likes: 0,
-      createdAt: Date.now(),
-      author: CURRENT_USER_NAME
-    },
-    ...prev
-  ]);
-  setParts([]);
+  fetch("/api/mix", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    title: title.trim(),
+    author: CURRENT_USER_NAME,
+    content: JSON.stringify(parts)
+  })
+})
+  .then(() => fetch("/api/mix").then(r => r.json()).then(setMixes))
+  .catch(err => console.error("Ошибка сохранения микса:", err));
+
+setParts([]);
 };
 
       // --- ADMIN (полностью как в первом файле) ---
