@@ -3,6 +3,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
 const fs = require("fs");
+console.log("📍 Текущая рабочая директория:", process.cwd());
+console.log("📄 Путь до server.cjs:", __dirname);
 const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 
