@@ -32,6 +32,51 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// === API для миксов через файл ===
+import fs from "fs";
+const MIXES_FILE = process.env.MIXES_PATH || "/mnt/data/mixes.json";
+
+// Проверяем, есть ли файл, если нет — создаём пустой
+if (!fs.existsSync(MIXES_FILE)) {
+  fs.writeFileSync(MIXES_FILE, "[]", "utf-8");
+}
+
+// Получить все миксы
+app.get("/api/mix", (req, res) => {
+  try {
+    const data = JSON.parse(fs.readFileSync(MIXES_FILE, "utf-8"));
+    res.json(data);
+  } catch (err) {
+    console.error("Ошибка чтения mixes.json:", err);
+    res.json([]);
+  }
+});
+
+// Добавить микс
+app.post("/api/mix", (req, res) => {
+  const { title, author, content } = req.body;
+  if (!title || !author) {
+    return res.status(400).json({ error: "Отсутствуют данные" });
+  }
+
+  try {
+    const data = JSON.parse(fs.readFileSync(MIXES_FILE, "utf-8"));
+    const newMix = {
+      id: Date.now(),
+      title,
+      author,
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    data.unshift(newMix);
+    fs.writeFileSync(MIXES_FILE, JSON.stringify(data, null, 2), "utf-8");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка записи mixes.json:", err);
+    res.status(500).json({ error: "Ошибка сохранения" });
+  }
+});
+
 // 🔹 Создаём таблицы, если их нет
 (async () => {
   const db = await dbPromise;
