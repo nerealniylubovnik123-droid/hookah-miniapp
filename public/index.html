@@ -668,19 +668,20 @@ useEffect(() => {
   }
 
   const id = "mix-" + Date.now();
-  fetch("/api/mix", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    title: title.trim(),
-    author: CURRENT_USER_NAME,
-    content: JSON.stringify(parts)
-  })
-})
-  .then(() => fetch("/api/mix").then(r => r.json()).then(setMixes))
-  .catch(err => console.error("Ошибка сохранения микса:", err));
-
-setParts([]);
+  setMixes(prev => [
+    {
+      id,
+      title: title.trim(),
+      description: "",
+      parts,
+      avgStrength: avg,
+      likes: 0,
+      createdAt: Date.now(),
+      author: CURRENT_USER_NAME
+    },
+    ...prev
+  ]);
+  setParts([]);
 };
 
       // --- ADMIN (полностью как в первом файле) ---
