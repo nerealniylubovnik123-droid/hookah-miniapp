@@ -197,7 +197,14 @@
   if (total !== 100) return;
 
   const title = prompt("Введите название вашего микса:");
-  if (!title) return; // отмена или пустое имя — не сохраняем
+  if (!title) return;
+
+  // 🚫 Проверяем название на запрещённые слова
+  const bad = banned.find(w => title.toLowerCase().includes(w.toLowerCase()));
+  if (bad) {
+    alert(`❌ В названии найдено запрещённое слово: "${bad}"`);
+    return;
+  }
 
   const id = "mix-" + Date.now();
   setMixes(prev => [
