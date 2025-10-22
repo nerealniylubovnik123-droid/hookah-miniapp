@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (_, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "public", "welcome.html"));
 });
 
 app.listen(PORT, () => console.log(`✅ Hookah MiniApp running on port ${PORT}`));
