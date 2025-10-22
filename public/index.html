@@ -134,6 +134,22 @@
       useEffect(()=>save("h.banned",banned),[banned]);
       useEffect(()=>save("h.mixes.v3",mixes),[mixes]);
 
+      // 🧹 При изменении списка запрещённых слов — удаляем миксы с ними
+useEffect(() => {
+  if (banned.length > 0) {
+    setMixes(prev => {
+      const filtered = prev.filter(m => 
+        !banned.some(w => m.title.toLowerCase().includes(w.toLowerCase()))
+      );
+      if (filtered.length !== prev.length) {
+        console.log("❌ Удалены миксы с запрещёнными словами:", banned);
+        save("h.mixes.v3", filtered);
+      }
+      return filtered;
+    });
+  }
+}, [banned]);
+
       useEffect(()=>{if(mixes.length===0){
         const m1=[
           {key:"musthave:raspberry",brandId:"musthave",flavorId:"raspberry",name:"Raspberry",percent:60,strength:3,taste:"ягодный, кисловатый"},
