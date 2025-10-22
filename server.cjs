@@ -94,6 +94,30 @@ app.post("/api/stop-words", async (req, res) => {
 // ✅ Проверка статуса
 app.get("/api/status", (req, res) => res.json({ ok: true }));
 
+// --- API для миксов ---
+app.get("/api/mix", async (req, res) => {
+  const db = await dbPromise;
+  const mixes = await db.all("SELECT * FROM mixes ORDER BY id DESC");
+  res.json(mixes);
+});
+
+app.post("/api/mix", async (req, res) => {
+  const { title, author, content } = req.body;
+  if (!title || !author) return res.status(400).json({ error: "Missing data" });
+
+  const db = await dbPromise;
+  await db.run(
+    "CREATE TABLE IF NOT EXISTS mixes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, author TEXT, content TEXT, createdAt INTEGER)"
+  );
+
+  await db.run(
+    "INSERT INTO mixes (title, author, content, createdAt) VALUES (?, ?, ?, ?)",
+    [title, author, content, Date.now()]
+  );
+
+  res.json({ success: true });
+});
+
 // ✅ Уведомление админам
 async function notifyAdmins(message) {
   for (const id of ADMIN_TG_IDS) {
