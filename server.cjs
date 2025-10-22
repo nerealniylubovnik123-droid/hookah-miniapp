@@ -42,7 +42,7 @@ app.get("/api/status", (req, res) => {
 // === API для миксов через локальный файл ===
 
 // Путь к файлу миксов
-const MIXES_FILE = path.join(__dirname, "mixes.json");
+const MIXES_FILE = process.env.MIXES_PATH || path.join("/mnt/data", "mixes.json");
 
 // Проверка: если нет файла — создать пустой
 if (!fs.existsSync(MIXES_FILE)) {
