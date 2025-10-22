@@ -1,26 +1,23 @@
-// ========================
-// Hookah MiniApp Server
-// ========================
-
+// server.cjs — версия с рабочим сохранением миксов
 const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
-const fs = require("fs");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 const TelegramBot = require("node-telegram-bot-api");
+const fs = require("fs");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Telegram Bot
+// Telegram bot
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
 const ADMIN_TG_IDS = process.env.ADMIN_TG_IDS
   ? process.env.ADMIN_TG_IDS.split(",").map((id) => id.trim())
   : [];
 
-// SQLite (если используется)
+// SQLite (для других функций)
 const dbPromise = open({
   filename: process.env.SQLITE_PATH || "./app.sqlite",
   driver: sqlite3.Database,
@@ -29,71 +26,66 @@ const dbPromise = open({
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// ===================================================
-// 📦 МИКСЫ — хранение в JSON файле (постоянно в /mnt/data)
-// ===================================================
-const MIXES_FILE = process.env.MIXES_PATH || path.join("/mnt/data", "mixes.json");
+// =====================
+// ✅ API: сохранение и загрузка миксов
+// =====================
+const MIXES_PATH = "/mnt/data/mixes.json";
 
-// Проверяем наличие файла при запуске
-if (!fs.existsSync(MIXES_FILE)) {
-  try {
-    fs.writeFileSync(MIXES_FILE, "[]", "utf8");
-    console.log("✅ Создан новый файл миксов:", MIXES_FILE);
-  } catch (err) {
-    console.error("❌ Не удалось создать файл миксов:", err);
-  }
-}
-
-// Получение всех миксов
+// Чтение миксов
 app.get("/api/mix", (req, res) => {
   try {
-    const data = fs.readFileSync(MIXES_FILE, "utf8");
-    res.json(JSON.parse(data));
+    if (fs.existsSync(MIXES_PATH)) {
+      const data = fs.readFileSync(MIXES_PATH, "utf8");
+      const mixes = JSON.parse(data || "[]");
+      res.json(mixes);
+    } else {
+      res.json([]);
+    }
   } catch (err) {
     console.error("Ошибка чтения миксов:", err);
-    res.status(500).json({ error: "Не удалось загрузить миксы" });
+    res.status(500).json({ error: "Ошибка чтения миксов" });
   }
 });
 
-// Добавление нового микса
+// Сохранение нового микса
 app.post("/api/mix", (req, res) => {
+  const { title, content, author } = req.body;
+
+  if (!title || !content) {
+    return res.status(400).json({ error: "Название и состав обязательны" });
+  }
+
   try {
-    const data = fs.readFileSync(MIXES_FILE, "utf8");
-    const mixes = JSON.parse(data);
+    let mixes = [];
+    if (fs.existsSync(MIXES_PATH)) {
+      const data = fs.readFileSync(MIXES_PATH, "utf8");
+      mixes = JSON.parse(data || "[]");
+    }
 
     const newMix = {
       id: Date.now(),
-      title: req.body.title || "Без названия",
-      author: req.body.author || "Гость",
-      content: req.body.content || "",
-      date: new Date().toISOString(),
+      title,
+      content,
+      author: author || "Гость",
+      createdAt: new Date().toISOString(),
     };
 
     mixes.push(newMix);
-    fs.writeFileSync(MIXES_FILE, JSON.stringify(mixes, null, 2), "utf8");
+    fs.writeFileSync(MIXES_PATH, JSON.stringify(mixes, null, 2));
 
     console.log("💾 Новый микс сохранён:", newMix.title);
-    res.json({ success: true });
+    res.json({ success: true, mix: newMix });
   } catch (err) {
-    console.error("Ошибка сохранения микса:", err);
-    res.status(500).json({ error: "Не удалось сохранить микс" });
+    console.error("Ошибка при сохранении микса:", err);
+    res.status(500).json({ error: "Ошибка при сохранении микса" });
   }
 });
 
-// ===================================================
-// 🛠️ Другие API (пример — стоп-слова, статус, админ)
-// ===================================================
-
-// Пример: статус API
-app.get("/api/status", (req, res) => {
-  res.json({ ok: true });
-});
-
-// Пример: добавление стоп-слова
+// =====================
+// Пример API для стоп-слов (осталось как у тебя)
+// =====================
 app.post("/api/stop-words", async (req, res) => {
   const { word } = req.body;
   if (!word) return res.status(400).json({ error: "Word is required" });
@@ -102,7 +94,9 @@ app.post("/api/stop-words", async (req, res) => {
   res.json({ success: true });
 });
 
-// Уведомление админам
+// =====================
+// Telegram уведомления
+// =====================
 async function notifyAdmins(message) {
   for (const id of ADMIN_TG_IDS) {
     try {
@@ -113,11 +107,26 @@ async function notifyAdmins(message) {
   }
 }
 
-// ===================================================
-// Запуск сервера
-// ===================================================
+// =====================
+// Статические страницы
+// =====================
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "welcome.html"));
+});
+
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/index.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// =====================
+// Старт сервера
+// =====================
 app.listen(PORT, () => {
-  console.log("✅ Server started on port", PORT);
-  console.log("🌐 Open: http://localhost:" + PORT);
-  console.log("📂 Файл миксов:", MIXES_FILE);
+  console.log(`✅ Server started on port ${PORT}`);
+  console.log(`🌐 Open: http://localhost:${PORT}/`);
+  console.log(`📂 MIXES_PATH = ${MIXES_PATH}`);
 });
