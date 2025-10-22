@@ -5,13 +5,13 @@ const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 const TelegramBot = require("node-telegram-bot-api");
 const dotenv = require("dotenv");
-const { fileURLToPath } = require("url");
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const __dirname = path.resolve();
+
+// __dirname уже доступен в CommonJS, не нужно объявлять вручную
 
 // Настройка Telegram
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
@@ -29,10 +29,10 @@ const dbPromise = open({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Раздача статики
+// Раздача статических файлов
 app.use(express.static(path.join(__dirname, "public")));
 
-// ⚡ Загружаем welcome.html по умолчанию
+// ⚡ Приоритетная загрузка welcome.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "welcome.html"));
 });
@@ -46,8 +46,10 @@ app.get("/api/status", (req, res) => {
 app.post("/api/stop-words", async (req, res) => {
   const { word } = req.body;
   if (!word) return res.status(400).json({ error: "Word is required" });
+
   const db = await dbPromise;
   await db.run("INSERT INTO stop_words (word) VALUES (?)", [word]);
+
   res.json({ success: true });
 });
 
