@@ -570,7 +570,7 @@ html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
       const [mixes, setMixes] = useState([]);
 
 useEffect(() => {
-  fetch("/api/mix")
+  fetch("https://hookah-miniapp-production.up.railway.app/api/mix")
     .then(r => r.json())
     .then(setMixes)
     .catch(err => console.error("Ошибка загрузки миксов:", err));
