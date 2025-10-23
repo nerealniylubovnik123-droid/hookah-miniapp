@@ -96,16 +96,6 @@ function App() {
         { id: "whiskey-cola", name: "Whiskey Cola", strength: 5, taste: "алкогольный, кола", hidden: false },
       ],
     },
-    {
-      id: "darkside",
-      name: "Darkside",
-      hidden: false,
-      flavors: [
-        { id: "pear", name: "Pear", strength: 5, taste: "грушевый, сочный", hidden: false },
-        { id: "cola", name: "Cola", strength: 5, taste: "карамельный", hidden: false },
-        { id: "spiced-rum", name: "Spiced Rum", strength: 7, taste: "пряный, алкогольный", hidden: false },
-      ],
-    },
   ];
 
   const [brands, setBrands] = useState(() => load("h.brands.v3", seed));
@@ -123,44 +113,13 @@ function App() {
   useEffect(() => save("h.banned", banned), [banned]);
   useEffect(() => save("h.mixes.v3", mixes), [mixes]);
 
-  // === Очистка миксов при добавлении запрещённых слов ===
-  useEffect(() => {
-    if (banned.length > 0) {
-      setMixes((prev) => {
-        const filtered = prev.filter(
-          (m) => !banned.some((w) => m.title?.toLowerCase().includes(w.toLowerCase()))
-        );
-        if (filtered.length !== prev.length) save("h.mixes.v3", filtered);
-        return filtered;
-      });
-    }
-  }, [banned]);
-
-  // === Фолбэк-примеры ===
-  useEffect(() => {
-    if (mixes.length === 0) {
-      const m1 = [
-        { key: "musthave:raspberry", brandId: "musthave", flavorId: "raspberry", name: "Raspberry", percent: 60, strength: 3, taste: "ягодный, кисловатый" },
-        { key: "alfakher:mint", brandId: "alfakher", flavorId: "mint", name: "Mint", percent: 40, strength: 2, taste: "свежий, мятный" },
-      ];
-      const m2 = [
-        { key: "alfakher:double-apple", brandId: "alfakher", flavorId: "double-apple", name: "Double Apple", percent: 50, strength: 3, taste: "анисовый, яблочный" },
-        { key: "darkside:spiced-rum", brandId: "darkside", flavorId: "spiced-rum", name: "Spiced Rum", percent: 50, strength: 7, taste: "пряный, алкогольный" },
-      ];
-      setMixes([
-        { id: "ex1", title: "Лесные ягоды", author: "Гость Аня", parts: m1, avgStrength: calcAvg(m1), likes: 0, createdAt: Date.now() },
-        { id: "ex2", title: "Яблочный пряный", author: "Гость Макс", parts: m2, avgStrength: calcAvg(m2), likes: 0, createdAt: Date.now() },
-      ]);
-    }
-  }, []);
-
   // === COMMUNITY ===
-  const DIR = ["десертный", "кислый", "травяной", "пряный", "чайный", "сладкий", "свежий", "алкогольный", "гастрономический"];
+  const DIR = ["десертный", "кислый", "травяной", "пряный", "чайный", "сладкий", "свежий", "алкогольный"];
   const [pref, setPref] = useState("all");
   const [strength, setStrength] = useState(5);
   const [likes, setLikes] = useState({});
   const rec = mixes
-    .filter((m) => pref === "all" || m.parts.some((p) => p.taste.toLowerCase().includes(pref)))
+    .filter((m) => pref === "all" || m.parts?.some((p) => p.taste?.toLowerCase().includes(pref)))
     .filter((m) => Math.abs(m.avgStrength - strength) <= 1);
   const toggleLike = (id) => {
     setMixes((ms) => ms.map((m) => (m.id === id ? { ...m, likes: m.likes + (likes[id] ? -1 : 1) } : m)));
@@ -285,13 +244,7 @@ function App() {
       )
     );
 
-  const delBrand = (id) => {
-    const next = brands.filter((b) => b.id !== id);
-    setBrands(next);
-    if (brandForFlavor === id) setBrandForFlavor(next[0]?.id || "");
-    if (selected === id) setSelected(null);
-  };
-
+  const delBrand = (id) => setBrands(brands.filter((b) => b.id !== id));
   const delFlavor = (bid, fid) =>
     setBrands((prev) =>
       prev.map((b) => (b.id !== bid ? b : { ...b, flavors: b.flavors.filter((f) => f.id !== fid) }))
@@ -305,7 +258,7 @@ function App() {
   };
   const delBan = (w) => setBanned(banned.filter((x) => x !== w));
 
-  // === UI ===
+  // === Интерфейс ===
   return (
     <div className="container">
       <header className="title">Кальянный Миксер</header>
@@ -357,8 +310,88 @@ function App() {
               <button key={b.id} onClick={() => setSelected(b.id)}>{b.name}</button>
             ))}
           </div>
-
           {selectedBrand && (
             <>
               <input placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              {
+              {filtered.map((f) => (
+                <div key={f.id}>
+                  <span>{f.name}</span>
+                  <button onClick={() => addFlavor(selectedBrand.id, f)}>➕</button>
+                </div>
+              ))}
+            </>
+          )}
+
+          {parts.length > 0 && (
+            <div>
+              <h4>Ваш микс ({total}%)</h4>
+              {parts.map((p) => (
+                <div key={p.key}>
+                  {p.name}: <input type="number" min="0" max="100" value={p.percent}
+                    onChange={(e) => updatePct(p.key, +e.target.value)} />%
+                  <button onClick={() => removePart(p.key)}>❌</button>
+                </div>
+              ))}
+              <p>Средняя крепость: {avg}</p>
+              <button onClick={saveMix}>💾 Сохранить</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "admin" && IS_ADMIN && (
+        <div>
+          <h3>Админ-панель</h3>
+
+          <div>
+            <h4>Добавить бренд</h4>
+            <input placeholder="Название бренда" value={brandName} onChange={(e) => setBrandName(e.target.value)} />
+            <button onClick={addBrand}>Добавить</button>
+          </div>
+
+          <div>
+            <h4>Добавить вкус</h4>
+            <select value={brandForFlavor} onChange={(e) => setBrandForFlavor(e.target.value)}>
+              {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <input placeholder="Название вкуса" value={flavorName} onChange={(e) => setFlavorName(e.target.value)} />
+            <input placeholder="Описание вкуса" value={flavorTaste} onChange={(e) => setFlavorTaste(e.target.value)} />
+            <input type="number" min="1" max="10" value={flavorStrength} onChange={(e) => setFlavorStrength(+e.target.value)} />
+            <button onClick={addFlavorAdmin}>Добавить вкус</button>
+          </div>
+
+          <div>
+            <h4>Бренды</h4>
+            {brands.map((b) => (
+              <div key={b.id}>
+                <b>{b.name}</b>
+                <button onClick={() => toggleBrandHidden(b.id)}>{b.hidden ? "👁️‍🗨️" : "🙈"}</button>
+                <button onClick={() => delBrand(b.id)}>❌</button>
+                {b.flavors.map((f) => (
+                  <div key={f.id} style={{ marginLeft: "15px" }}>
+                    {f.name} ({f.strength}) — {f.taste}
+                    <button onClick={() => toggleFlavorHidden(b.id, f.id)}>{f.hidden ? "👁️‍🗨️" : "🙈"}</button>
+                    <button onClick={() => delFlavor(b.id, f.id)}>❌</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h4>Запрещённые слова</h4>
+            <input placeholder="Слово" value={banInput} onChange={(e) => setBanInput(e.target.value)} />
+            <button onClick={addBan}>Добавить</button>
+            <ul>
+              {banned.map((w) => (
+                <li key={w}>{w} <button onClick={() => delBan(w)}>❌</button></li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
