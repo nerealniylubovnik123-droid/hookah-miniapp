@@ -29,20 +29,23 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // =====================
-// ✅ API: сохранение и загрузка миксов
+// ✅ API: сохранение и загрузка миксов (через JSON-файл)
 // =====================
-const MIXES_PATH = "/mnt/data/mixes.json";
 
-// Чтение миксов
+const MIXES_FILE = path.join(__dirname, "mixes.json");
+
+// Проверяем наличие файла при запуске
+if (!fs.existsSync(MIXES_FILE)) {
+  fs.writeFileSync(MIXES_FILE, JSON.stringify([], null, 2), "utf8");
+  console.log("🆕 Файл mixes.json создан");
+}
+
+// Получение всех миксов
 app.get("/api/mix", (req, res) => {
   try {
-    if (fs.existsSync(MIXES_PATH)) {
-      const data = fs.readFileSync(MIXES_PATH, "utf8");
-      const mixes = JSON.parse(data || "[]");
-      res.json(mixes);
-    } else {
-      res.json([]);
-    }
+    const data = fs.readFileSync(MIXES_FILE, "utf8");
+    const mixes = JSON.parse(data || "[]");
+    res.json(mixes);
   } catch (err) {
     console.error("Ошибка чтения миксов:", err);
     res.status(500).json({ error: "Ошибка чтения миксов" });
@@ -51,16 +54,16 @@ app.get("/api/mix", (req, res) => {
 
 // Сохранение нового микса
 app.post("/api/mix", (req, res) => {
-  const { title, content, author } = req.body;
-
-  if (!title || !content) {
-    return res.status(400).json({ error: "Название и состав обязательны" });
-  }
-
   try {
+    const { title, content, author } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: "Название и состав обязательны" });
+    }
+
     let mixes = [];
-    if (fs.existsSync(MIXES_PATH)) {
-      const data = fs.readFileSync(MIXES_PATH, "utf8");
+    if (fs.existsSync(MIXES_FILE)) {
+      const data = fs.readFileSync(MIXES_FILE, "utf8");
       mixes = JSON.parse(data || "[]");
     }
 
@@ -73,13 +76,13 @@ app.post("/api/mix", (req, res) => {
     };
 
     mixes.push(newMix);
-    fs.writeFileSync(MIXES_PATH, JSON.stringify(mixes, null, 2));
+    fs.writeFileSync(MIXES_FILE, JSON.stringify(mixes, null, 2), "utf8");
 
     console.log("💾 Новый микс сохранён:", newMix.title);
     res.json({ success: true, mix: newMix });
   } catch (err) {
     console.error("Ошибка при сохранении микса:", err);
-    res.status(500).json({ error: "Ошибка при сохранении микса" });
+    res.status(500).json({ error: "Ошибка сохранения микса" });
   }
 });
 
