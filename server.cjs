@@ -1,133 +1,109 @@
-// server.cjs — версия с рабочим сохранением миксов
+// server.cjs — сохранение общих миксов в mixes.json (Express, CJS)
 const express = require("express");
-const bodyParser = require("body-parser");
 const path = require("path");
-const sqlite3 = require("sqlite3");
-const { open } = require("sqlite");
-const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
+const bodyParser = require("body-parser");
 require("dotenv").config();
-
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// ===== Настройки путей =====
+const ROOT_DIR = __dirname;                               // корень проекта (где лежит server.cjs и index.html)
+const STATIC_DIR = process.env.STATIC_DIR || ROOT_DIR;    // откуда отдаём статику
+const MIXES_PATH = process.env.MIXES_PATH || path.join(ROOT_DIR, "mixes.json");
 
-
-// Telegram bot
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
-const ADMIN_TG_IDS = process.env.ADMIN_TG_IDS
-  ? process.env.ADMIN_TG_IDS.split(",").map((id) => id.trim())
-  : [];
-
-// SQLite (для других функций)
-const dbPromise = open({
-  filename: process.env.SQLITE_PATH || "./app.sqlite",
-  driver: sqlite3.Database,
-});
-
-// Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-
-// =====================
-// ✅ API: сохранение и загрузка миксов
-// =====================
-const MIXES_PATH = "/mnt/data/mixes.json";
-
-// =====================
-// ✅ API: сохранение и загрузка миксов (через SQLite)
-// =====================
-
-// Создаём таблицу, если её нет
-(async () => {
-  const db = await dbPromise;
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS mixes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      content TEXT,
-      author TEXT,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-})();
-
-// Получение всех миксов
-app.get("/api/mix", async (req, res) => {
+// ===== Создаём mixes.json, если его нет =====
+function ensureFile(filePath, initial = "[]") {
   try {
-    const db = await dbPromise;
-    const mixes = await db.all("SELECT * FROM mixes ORDER BY id DESC");
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, initial, "utf8");
+      console.log(`🆕 Создал файл: ${filePath}`);
+    }
+  } catch (e) {
+    console.error("Не удалось создать файл", filePath, e);
+  }
+}
+ensureFile(MIXES_PATH, "[]");
+
+// ===== Миддлвары =====
+app.use(bodyParser.json({ limit: "1mb" }));
+app.use(express.static(STATIC_DIR)); // отдаём index.html, css, js, картинки из корня
+
+// ===== Утилиты для работы с файлами =====
+function readJSON(file) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(file, "utf8", (err, data) => {
+      if (err) return reject(err);
+      try {
+        const parsed = data ? JSON.parse(data) : [];
+        resolve(parsed);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+}
+
+function writeJSON(file, obj) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(file, JSON.stringify(obj, null, 2), "utf8", (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
+// =====================
+// API: общие миксы
+// =====================
+
+// Получить все миксы
+app.get("/api/mixes", async (req, res) => {
+  try {
+    const mixes = await readJSON(MIXES_PATH);
     res.json(mixes);
-  } catch (err) {
-    console.error("Ошибка чтения миксов:", err);
-    res.status(500).json({ error: "Ошибка чтения миксов" });
+  } catch (e) {
+    console.error("Ошибка чтения миксов:", e);
+    res.status(500).json({ error: "Ошибка чтения файла миксов" });
   }
 });
 
-// Сохранение нового микса
-app.post("/api/mix", async (req, res) => {
+// Добавить новый микс
+app.post("/api/mixes", async (req, res) => {
   try {
-    const { title, content, author } = req.body;
-
-    if (!title || !content) {
-      return res.status(400).json({ error: "Название и состав обязательны" });
+    const newMix = req.body || {};
+    if (!newMix.name || typeof newMix.name !== "string") {
+      return res.status(400).json({ error: "Поле 'name' обязательно (string)" });
     }
 
-    const db = await dbPromise;
-    const result = await db.run(
-      "INSERT INTO mixes (title, content, author) VALUES (?, ?, ?)",
-      [title, content, author || "Гость"]
-    );
+    // генерируем id и время создания
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const withMeta = { id, createdAt: new Date().toISOString(), ...newMix };
 
-    const savedMix = await db.get("SELECT * FROM mixes WHERE id = ?", [result.lastID]);
-
-    console.log("💾 Новый микс сохранён:", savedMix.title);
-    res.json({ success: true, mix: savedMix });
-  } catch (err) {
-    console.error("Ошибка при сохранении микса:", err);
-    res.status(500).json({ error: "Ошибка сохранения микса" });
+    const mixes = await readJSON(MIXES_PATH);
+    mixes.push(withMeta);
+    await writeJSON(MIXES_PATH, mixes);
+    res.json({ success: true, id });
+  } catch (e) {
+    console.error("Ошибка записи микса:", e);
+    res.status(500).json({ error: "Ошибка записи файла миксов" });
   }
 });
 
 // =====================
-// Пример API для стоп-слов (осталось как у тебя)
+// (Необязательно) Пример эндпоинта для стоп-слов, чтобы ничего не сломалось на фронте
+// Оставь, если фронт его вызывает. Иначе можно удалить.
 // =====================
 app.post("/api/stop-words", async (req, res) => {
-  const { word } = req.body;
-  if (!word) return res.status(400).json({ error: "Word is required" });
-  const db = await dbPromise;
-  await db.run("INSERT INTO stop_words (word) VALUES (?)", [word]);
   res.json({ success: true });
 });
 
 // =====================
-// Telegram уведомления
+// Отдача index.html по прямому заходу
 // =====================
-async function notifyAdmins(message) {
-  for (const id of ADMIN_TG_IDS) {
-    try {
-      await bot.sendMessage(id, message, { parse_mode: "HTML" });
-    } catch (err) {
-      console.error("Ошибка Telegram:", err.message);
-    }
-  }
-}
-
-// =====================
-// Статические страницы
-// =====================
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "welcome.html"));
-});
-
-app.get("/app", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-app.get("/index.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+app.get(["/", "/index.html"], (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, "index.html"));
 });
 
 // =====================
@@ -136,5 +112,62 @@ app.get("/index.html", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server started on port ${PORT}`);
   console.log(`🌐 Open: http://localhost:${PORT}/`);
+  console.log(`📂 STATIC_DIR = ${STATIC_DIR}`);
   console.log(`📂 MIXES_PATH = ${MIXES_PATH}`);
 });
+
+
+// ===== Mixes API (file-based storage) =====
+try {
+  const fs = require('fs');
+  const path = require('path');
+  const MIXES_PATH = process.env.MIXES_PATH || path.join(__dirname, 'mixes.json');
+
+  // Ensure body parser and JSON
+  try { if (app && app.use && typeof express?.json === 'function') { app.use(express.json()); } } catch(e) {}
+
+  // Ensure file exists
+  try {
+    if (!fs.existsSync(MIXES_PATH)) {
+      fs.writeFileSync(MIXES_PATH, '[]', 'utf8');
+    }
+  } catch (e) {
+    console.error('Failed to ensure mixes file:', e);
+  }
+
+  // GET all mixes
+  app.get('/api/mixes', (req, res) => {
+    try {
+      const raw = fs.readFileSync(MIXES_PATH, 'utf8');
+      const mixes = raw ? JSON.parse(raw) : [];
+      res.json(mixes);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Ошибка чтения/парсинга файла миксов' });
+    }
+  });
+
+  // POST new mix
+  app.post('/api/mixes', (req, res) => {
+    const newMix = req.body || {};
+    if (!newMix.name) {
+      return res.status(400).json({ error: 'Некорректные данные микса: нужен name' });
+    }
+    try {
+      const raw = fs.readFileSync(MIXES_PATH, 'utf8');
+      const mixes = raw ? JSON.parse(raw) : [];
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const createdAt = new Date().toISOString();
+      mixes.push({ id, createdAt, ...newMix });
+      fs.writeFileSync(MIXES_PATH, JSON.stringify(mixes, null, 2), 'utf8');
+      res.json({ success: true, id, createdAt });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Ошибка записи файла миксов' });
+    }
+  });
+} catch (e) {
+  console.error('Mixes API init failed:', e);
+}
+// ===== End Mixes API =====
+

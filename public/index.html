@@ -952,5 +952,61 @@ function enterApp() {
 }
 </script>
 
+
+<div id="mixes-list" class="container" style="margin-top:8px;"></div>
+
+
+<script>
+// === File-based mixes: load & save ===
+async function loadMixes() {
+  try {
+    const res = await fetch('/api/mixes');
+    const mixes = await res.json();
+    renderMixes(mixes);
+  } catch (err) {
+    console.error('Ошибка загрузки миксов:', err);
+  }
+}
+
+async function saveMix(mix) {
+  try {
+    const res = await fetch('/api/mixes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mix)
+    });
+    const result = await res.json();
+    if (result && result.success) {
+      if (window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred) {
+        try { Telegram.WebApp.HapticFeedback.notificationOccurred('success'); } catch(e){}
+      }
+      loadMixes();
+      alert('✅ Микс сохранён');
+    } else {
+      alert('Не удалось сохранить микс');
+    }
+  } catch (err) {
+    console.error('Ошибка сохранения микса:', err);
+    alert('Ошибка сохранения микса');
+  }
+}
+
+function renderMixes(mixes) {
+  const c = document.getElementById('mixes-list');
+  if (!c) return;
+  c.innerHTML = '';
+  (mixes || []).slice().reverse().forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'mix-card';
+    const created = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
+    const details = m.flavors ? `<div class="tiny muted">${m.flavors.map(f => `${f.brand || ''} ${f.taste || ''} — ${f.percent || 0}%`).join('<br>')}</div>` : '';
+    card.innerHTML = `<div class="row between"><strong>${m.name || 'Без названия'}</strong><span class="tiny muted">${created}</span></div>${details}`;
+    c.appendChild(card);
+  });
+}
+
+window.addEventListener('DOMContentLoaded', loadMixes);
+</script>
+
 </body>
 </html>
