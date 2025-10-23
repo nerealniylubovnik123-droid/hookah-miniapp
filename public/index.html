@@ -9,7 +9,7 @@
 :root { --bg:#000; --accent:#f0b85a; --text:#fff; }
 * { box-sizing:border-box;margin:0;padding:0; }
 html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
-  font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden; height:100%; }
+  font-family:Inter,system-ui,Seconst saveMix = () => {goe UI,Roboto,sans-serif;overflow:hidden; height:100%; }
 .hidden { opacity:0;pointer-events:none;transition:opacity 1s ease; }
 #welcome-wrapper { position:fixed;inset:0;z-index:9999;transition:opacity 1s ease; }
 
@@ -654,7 +654,7 @@ useEffect(() => {
         })
       };
       const removePart=key=>setParts(prev=>prev.filter(x=>x.key!==key));
-      const saveMix = () => {
+      const saveMix = async () => {
   if (total !== 100) return;
 
   const title = prompt("Введите название вашего микса:");
@@ -667,21 +667,36 @@ useEffect(() => {
     return;
   }
 
-  const id = "mix-" + Date.now();
-  setMixes(prev => [
-    {
-      id,
-      title: title.trim(),
-      description: "",
-      parts,
-      avgStrength: avg,
-      likes: 0,
-      createdAt: Date.now(),
-      author: CURRENT_USER_NAME
-    },
-    ...prev
-  ]);
-  setParts([]);
+  const newMix = {
+    name: title.trim(),
+    author: CURRENT_USER_NAME,
+    flavors: parts,
+    avgStrength: avg,
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch("/api/mixes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newMix)
+    });
+    const result = await res.json();
+
+    if (result && result.success) {
+      alert("✅ Микс сохранён");
+      setParts([]);
+      // Перезагружаем список миксов
+      const r = await fetch("/api/mixes");
+      const data = await r.json();
+      setMixes(data);
+    } else {
+      alert("❌ Ошибка при сохранении микса");
+    }
+  } catch (err) {
+    console.error("Ошибка сохранения микса:", err);
+    alert("❌ Не удалось сохранить микс");
+  }
 };
 
       // --- ADMIN (полностью как в первом файле) ---
