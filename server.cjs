@@ -1,19 +1,18 @@
-import express from "express";
-import fs from "fs";
-import path from "path";
-import sqlite3 from "sqlite3";
-import { fileURLToPath } from "url";
-import TelegramBot from "node-telegram-bot-api";
-import bodyParser from "body-parser";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const sqlite3 = require("sqlite3");
+const TelegramBot = require("node-telegram-bot-api");
+const bodyParser = require("body-parser");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const DEV_ALLOW_UNSAFE = process.env.DEV_ALLOW_UNSAFE === "true";
-const ADMIN_TG_IDS = (process.env.ADMIN_TG_IDS || "").split(",").map(x => parseInt(x));
+const ADMIN_TG_IDS = (process.env.ADMIN_TG_IDS || "")
+  .split(",")
+  .map((x) => parseInt(x))
+  .filter(Boolean);
 const SQLITE_PATH = process.env.SQLITE_PATH || path.join(__dirname, "app.sqlite");
 
 const bot = new TelegramBot(process.env.BOT_TOKEN || "", { polling: false });
@@ -44,7 +43,9 @@ app.post("/api/mixes", (req, res) => {
   try {
     const mix = req.body;
     if (!mix || !mix.name || !Array.isArray(mix.flavors)) {
-      return res.status(400).json({ success: false, error: "Некорректный формат данных" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Некорректный формат данных" });
     }
 
     const data = fs.existsSync(MIXES_PATH)
@@ -64,13 +65,14 @@ app.post("/api/mixes", (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("Ошибка сохранения микса:", err);
-    res.status(500).json({ success: false, error: "Ошибка записи в файл" });
+    res
+      .status(500)
+      .json({ success: false, error: "Ошибка записи в файл mixes.json" });
   }
 });
 
-// === Остальные API (из твоего проекта) ===
-// примеры: /api/stop-words, /api/suppliers, /api/orders и др.
-// они остаются без изменений — вся логика Telegram и SQLite сохраняется
+// === Остальные API из твоего проекта (заявки, поставщики, Telegram, SQLite) ===
+// Всё это остаётся без изменений, т.к. изменение касается только миксов.
 
 // === Фронтенд ===
 app.get("*", (req, res) => {
