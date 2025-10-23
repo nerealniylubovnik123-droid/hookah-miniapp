@@ -1,6 +1,13 @@
+# === Этап 1: сборка ===
+FROM node:18-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+
+# === Этап 2: запуск ===
 FROM node:18-alpine
 WORKDIR /app
-COPY . .
-RUN npm install --omit=dev
-ENV PORT=8080
-CMD ["npm", "start"]
+COPY --from=build /app .
+EXPOSE 8080
+CMD ["node", "server.cjs"]
