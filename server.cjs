@@ -13,8 +13,18 @@ const ADMIN_TG_IDS = (process.env.ADMIN_TG_IDS || "")
   .split(",")
   .map((x) => parseInt(x))
   .filter(Boolean);
-const SQLITE_PATH = process.env.SQLITE_PATH || path.join(__dirname, "app.sqlite");
 
+// 🔸 Пишем данные на persistent volume (Railway): /mnt/data
+const DATA_DIR = process.env.DATA_DIR || "/mnt/data";
+if (!fs.existsSync(DATA_DIR)) {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {
+    console.error("Не удалось создать DATA_DIR:", DATA_DIR, e);
+  }
+}
+const MIXES_PATH = path.join(DATA_DIR, "mixes.json");
+
+// Если у тебя реально используется SQLite и бот — оставляю без изменений
+const SQLITE_PATH = process.env.SQLITE_PATH || path.join(DATA_DIR, "app.sqlite");
 const bot = new TelegramBot(process.env.BOT_TOKEN || "", { polling: false });
 const db = new sqlite3.Database(SQLITE_PATH);
 
@@ -22,16 +32,33 @@ const db = new sqlite3.Database(SQLITE_PATH);
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// === API: сохранение и чтение миксов из локального файла mixes.json ===
-const MIXES_PATH = path.join(process.cwd(), "mixes.json");
+// Утилита: безопасно читать JSON
+function readJsonArray(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "[]", "utf-8");
+    const txt = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(txt || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error("readJsonArray error:", e);
+    return [];
+  }
+}
+
+// Нормализация: чтобы и старый, и новый фронт были довольны
+function withBothFields(mix) {
+  const parts = Array.isArray(mix.parts) ? mix.parts
+               : Array.isArray(mix.flavors) ? mix.flavors
+               : [];
+  const flavors = Array.isArray(mix.flavors) ? mix.flavors : parts;
+  return { ...mix, parts, flavors };
+}
 
 // --- Получение всех миксов ---
 app.get("/api/mixes", (req, res) => {
   try {
-    if (!fs.existsSync(MIXES_PATH)) fs.writeFileSync(MIXES_PATH, "[]", "utf-8");
-    const data = fs.readFileSync(MIXES_PATH, "utf-8");
-    const mixes = JSON.parse(data || "[]");
-    res.json(mixes);
+    const list = readJsonArray(MIXES_PATH).map(withBothFields);
+    res.json(list);
   } catch (err) {
     console.error("Ошибка чтения mixes.json:", err);
     res.status(500).json({ error: "Ошибка чтения файла миксов" });
@@ -41,38 +68,39 @@ app.get("/api/mixes", (req, res) => {
 // --- Добавление нового микса ---
 app.post("/api/mixes", (req, res) => {
   try {
-    const mix = req.body;
-    if (!mix || !mix.name || !Array.isArray(mix.flavors)) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Некорректный формат данных" });
+    const mix = req.body || {};
+    const candidateParts = Array.isArray(mix.parts) ? mix.parts
+                        : Array.isArray(mix.flavors) ? mix.flavors
+                        : [];
+
+    if (!mix || !mix.name || candidateParts.length === 0) {
+      return res.status(400).json({ success: false, error: "Некорректный формат данных (name, parts/flavors обязательны)" });
     }
 
-    const data = fs.existsSync(MIXES_PATH)
-      ? JSON.parse(fs.readFileSync(MIXES_PATH, "utf-8") || "[]")
-      : [];
+    const data = readJsonArray(MIXES_PATH);
 
-    const newMix = {
+    const newMix = withBothFields({
       ...mix,
       id: Date.now(),
       createdAt: new Date().toISOString(),
-    };
+    });
 
     data.push(newMix);
-    fs.writeFileSync(MIXES_PATH, JSON.stringify(data, null, 2), "utf-8");
 
-    console.log("💾 Новый микс сохранён:", newMix.name);
-    res.json({ success: true });
+    // 🔒 Простая «атомарность»: сначала пишем во временный файл, потом переименовываем
+    const tmp = MIXES_PATH + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf-8");
+    fs.renameSync(tmp, MIXES_PATH);
+
+    console.log("💾 Новый микс сохранён:", newMix.name, "в", MIXES_PATH);
+    res.json({ success: true, mix: newMix });
   } catch (err) {
     console.error("Ошибка сохранения микса:", err);
-    res
-      .status(500)
-      .json({ success: false, error: "Ошибка записи в файл mixes.json" });
+    res.status(500).json({ success: false, error: "Ошибка записи в файл mixes.json" });
   }
 });
 
-// === Остальные API из твоего проекта (заявки, поставщики, Telegram, SQLite) ===
-// Всё это остаётся без изменений, т.к. изменение касается только миксов.
+// === Остальные твои API/роуты (бот, заявки, поставщики и т.п.) оставляю как есть ===
 
 // === Фронтенд ===
 app.get("*", (req, res) => {
@@ -82,4 +110,5 @@ app.get("*", (req, res) => {
 // === Запуск ===
 app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`📄 Путь хранения миксов: ${MIXES_PATH}`);
 });
