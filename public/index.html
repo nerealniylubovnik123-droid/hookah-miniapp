@@ -569,46 +569,33 @@ html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
       const [banned,setBanned]=useState(()=>load("h.banned",[]));
       const [mixes, setMixes] = useState([]);
 
-useEffect(() => {
-  fetch("/api/mixes")
-    .then(r => r.json())
-    .then(setMixes)
-    .catch(err => console.error("Ошибка загрузки миксов:", err));
-}, []);
+      // === Загрузка миксов при старте (локальный эндпоинт) ===
+      useEffect(() => {
+        fetch("/api/mixes")
+          .then(r => r.json())
+          .then(setMixes)
+          .catch(err => console.error("Ошибка загрузки миксов:", err));
+      }, []);
+
       useEffect(()=>save("h.brands.v3",brands),[brands]);
       useEffect(()=>save("h.banned",banned),[banned]);
       useEffect(()=>save("h.mixes.v3",mixes),[mixes]);
 
       // 🧹 При изменении списка запрещённых слов — удаляем миксы с ними
-useEffect(() => {
-  if (banned.length > 0) {
-    setMixes(prev => {
-      const filtered = prev.filter(m => 
-        !banned.some(w => m.title.toLowerCase().includes(w.toLowerCase()))
-      );
-      if (filtered.length !== prev.length) {
-        console.log("❌ Удалены миксы с запрещёнными словами:", banned);
-        save("h.mixes.v3", filtered);
-      }
-      return filtered;
-    });
-  }
-}, [banned]);
-
-      useEffect(()=>{if(mixes.length===0){
-        const m1=[
-          {key:"musthave:raspberry",brandId:"musthave",flavorId:"raspberry",name:"Raspberry",percent:60,strength:3,taste:"ягодный, кисловатый"},
-          {key:"alfakher:mint",brandId:"alfakher",flavorId:"mint",name:"Mint",percent:40,strength:2,taste:"свежий, мятный"}
-        ];
-        const m2=[
-          {key:"alfakher:double-apple",brandId:"alfakher",flavorId:"double-apple",name:"Double Apple",percent:50,strength:3,taste:"анисовый, яблочный"},
-          {key:"darkside:spiced-rum",brandId:"darkside",flavorId:"spiced-rum",name:"Spiced Rum",percent:50,strength:7,taste:"пряный, алкогольный"}
-        ];
-        setMixes([
-          {id:"ex1",title:"Лесные ягоды",author:"Гость Аня",parts:m1,avgStrength:calcAvg(m1),likes:0,createdAt:Date.now()},
-          {id:"ex2",title:"Яблочный пряный",author:"Гость Макс",parts:m2,avgStrength:calcAvg(m2),likes:0,createdAt:Date.now()}
-        ]);
-      }},[]);
+      useEffect(() => {
+        if (banned.length > 0) {
+          setMixes(prev => {
+            const filtered = prev.filter(m => 
+              !banned.some(w => (m.title || '').toLowerCase().includes(w.toLowerCase()))
+            );
+            if (filtered.length !== prev.length) {
+              console.log("❌ Удалены миксы с запрещёнными словами:", banned);
+              save("h.mixes.v3", filtered);
+            }
+            return filtered;
+          });
+        }
+      }, [banned]);
 
       // community
       const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
@@ -618,9 +605,30 @@ useEffect(() => {
       const rec=mixes
         .filter(m=>pref==='all'||m.parts.some(p=>p.taste.toLowerCase().includes(pref)))
         .filter(m=>Math.abs(m.avgStrength-strength)<=1);
-      const toggleLike=id=>{
-        setMixes(ms=>ms.map(m=>m.id===id?{...m,likes:m.likes+(likes[id]?-1:1)}:m));
-        setLikes(s=>{const n={...s};if(n[id])delete n[id];else n[id]=1;return n});
+
+      // === Лайки с синхронизацией на сервер ===
+      const toggleLike = async (id) => {
+        try {
+          const already = !!likes[id];
+          const delta = already ? -1 : 1;
+
+          const res = await fetch(`/api/mixes/${id}/like`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ delta })
+          });
+          const result = await res.json();
+          if (!result.success) throw new Error(result.error || "like failed");
+
+          setMixes(ms => ms.map(m => m.id === id ? { ...m, likes: result.mix.likes } : m));
+          setLikes(s => {
+            const n = { ...s };
+            if (already) delete n[id]; else n[id] = 1;
+            return n;
+          });
+        } catch (e) {
+          console.error("Ошибка лайка:", e);
+        }
       };
 
       // builder
@@ -655,51 +663,48 @@ useEffect(() => {
       };
       const removePart=key=>setParts(prev=>prev.filter(x=>x.key!==key));
       const saveMix = async () => {
-  if (total !== 100) return;
+        if (total !== 100) return;
 
-  const title = prompt("Введите название вашего микса:");
-  if (!title) return;
+        const title = prompt("Введите название вашего микса:");
+        if (!title) return;
 
-  // 🚫 Проверяем название на запрещённые слова
-  const bad = banned.find(w => title.toLowerCase().includes(w.toLowerCase()));
-  if (bad) {
-    alert(`❌ В названии найдено запрещённое слово: "${bad}"`);
-    return;
-  }
+        const bad = banned.find(w => title.toLowerCase().includes(w.toLowerCase()));
+        if (bad) {
+          alert(`❌ В названии найдено запрещённое слово: "${bad}"`);
+          return;
+        }
 
-  const newMix = {
-    name: title.trim(),
-    author: CURRENT_USER_NAME,
-    flavors: parts,
-    avgStrength: avg,
-    createdAt: new Date().toISOString()
-  };
+        const newMix = {
+          name: title.trim(),
+          author: CURRENT_USER_NAME,
+          flavors: parts,
+          avgStrength: avg
+        };
 
-  try {
-    const res = await fetch("/api/mixes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newMix)
-    });
-    const result = await res.json();
+        try {
+          const res = await fetch("/api/mixes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newMix)
+          });
+          const result = await res.json();
 
-    if (result && result.success) {
-      alert("✅ Микс сохранён");
-      setParts([]);
-      // Перезагружаем список миксов
-      const r = await fetch("/api/mixes");
-      const data = await r.json();
-      setMixes(data);
-    } else {
-      alert("❌ Ошибка при сохранении микса");
-    }
-  } catch (err) {
-    console.error("Ошибка сохранения микса:", err);
-    alert("❌ Не удалось сохранить микс");
-  }
-};
+          if (result && result.success) {
+            alert("✅ Микс сохранён");
+            setParts([]);
+            const r = await fetch("/api/mixes");
+            const data = await r.json();
+            setMixes(data);
+          } else {
+            alert("❌ Ошибка при сохранении микса");
+          }
+        } catch (err) {
+          console.error("Ошибка сохранения микса:", err);
+          alert("❌ Не удалось сохранить микс");
+        }
+      };
 
-      // --- ADMIN (полностью как в первом файле) ---
+      // --- ADMIN (как в исходнике) ---
       const [brandName,setBrandName]=useState("");
       const [brandForFlavor,setBrandForFlavor]=useState((brands[0] && brands[0].id)||"");
       const [flavorName,setFlavorName]=useState("");
@@ -1013,9 +1018,8 @@ function renderMixes(mixes) {
   (mixes || []).slice().reverse().forEach(m => {
     const card = document.createElement('div');
     card.className = 'mix-card';
-    const created = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
-    const details = m.flavors ? `<div class="tiny muted">${m.flavors.map(f => `${f.brand || ''} ${f.taste || ''} — ${f.percent || 0}%`).join('<br>')}</div>` : '';
-    card.innerHTML = `<div class="row between"><strong>${m.name || 'Без названия'}</strong><span class="tiny muted">${created}</span></div>${details}`;
+    const details = m.parts ? `<div class="tiny muted">${m.parts.map(f => `${f.name || ''} ${f.taste || ''} — ${f.percent || 0}%`).join('<br>')}</div>` : '';
+    card.innerHTML = `<div class="row between"><strong>${m.title || 'Без названия'}</strong></div>${details}`;
     c.appendChild(card);
   });
 }
