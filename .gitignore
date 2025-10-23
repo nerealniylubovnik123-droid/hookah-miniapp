@@ -27,6 +27,9 @@ build/
 .cache/
 
 # === Разрешаем public ===
-# Важно: public содержит index.html, поэтому НЕ игнорируем
 !public/
-!pu
+!public/**
+
+# === Файлы ОС ===
+Thumbs.db
+desktop.ini
