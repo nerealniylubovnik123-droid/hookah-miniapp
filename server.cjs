@@ -8,8 +8,11 @@ const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
 require("dotenv").config();
 
+
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+
 
 // Telegram bot
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
@@ -29,22 +32,33 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // =====================
-// ✅ API: сохранение и загрузка миксов (через JSON-файл)
+// ✅ API: сохранение и загрузка миксов
+// =====================
+const MIXES_PATH = "/mnt/data/mixes.json";
+
+// =====================
+// ✅ API: сохранение и загрузка миксов (через SQLite)
 // =====================
 
-const MIXES_FILE = path.join(__dirname, "mixes.json");
-
-// Проверяем наличие файла при запуске
-if (!fs.existsSync(MIXES_FILE)) {
-  fs.writeFileSync(MIXES_FILE, JSON.stringify([], null, 2), "utf8");
-  console.log("🆕 Файл mixes.json создан");
-}
+// Создаём таблицу, если её нет
+(async () => {
+  const db = await dbPromise;
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS mixes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT,
+      content TEXT,
+      author TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+})();
 
 // Получение всех миксов
-app.get("/api/mix", (req, res) => {
+app.get("/api/mix", async (req, res) => {
   try {
-    const data = fs.readFileSync(MIXES_FILE, "utf8");
-    const mixes = JSON.parse(data || "[]");
+    const db = await dbPromise;
+    const mixes = await db.all("SELECT * FROM mixes ORDER BY id DESC");
     res.json(mixes);
   } catch (err) {
     console.error("Ошибка чтения миксов:", err);
@@ -53,7 +67,7 @@ app.get("/api/mix", (req, res) => {
 });
 
 // Сохранение нового микса
-app.post("/api/mix", (req, res) => {
+app.post("/api/mix", async (req, res) => {
   try {
     const { title, content, author } = req.body;
 
@@ -61,25 +75,16 @@ app.post("/api/mix", (req, res) => {
       return res.status(400).json({ error: "Название и состав обязательны" });
     }
 
-    let mixes = [];
-    if (fs.existsSync(MIXES_FILE)) {
-      const data = fs.readFileSync(MIXES_FILE, "utf8");
-      mixes = JSON.parse(data || "[]");
-    }
+    const db = await dbPromise;
+    const result = await db.run(
+      "INSERT INTO mixes (title, content, author) VALUES (?, ?, ?)",
+      [title, content, author || "Гость"]
+    );
 
-    const newMix = {
-      id: Date.now(),
-      title,
-      content,
-      author: author || "Гость",
-      createdAt: new Date().toISOString(),
-    };
+    const savedMix = await db.get("SELECT * FROM mixes WHERE id = ?", [result.lastID]);
 
-    mixes.push(newMix);
-    fs.writeFileSync(MIXES_FILE, JSON.stringify(mixes, null, 2), "utf8");
-
-    console.log("💾 Новый микс сохранён:", newMix.title);
-    res.json({ success: true, mix: newMix });
+    console.log("💾 Новый микс сохранён:", savedMix.title);
+    res.json({ success: true, mix: savedMix });
   } catch (err) {
     console.error("Ошибка при сохранении микса:", err);
     res.status(500).json({ error: "Ошибка сохранения микса" });
