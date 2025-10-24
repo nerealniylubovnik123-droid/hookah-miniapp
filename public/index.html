@@ -15,7 +15,7 @@ html,body{width:100vw;height:100vh;background:var(--bg);color:var(--text);
   font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden;}
 .hidden{opacity:0;pointer-events:none;transition:opacity 1s ease;}
 
-/* === Вступительный экран === */
+/* === Вступительный экран (добавлены анимации) === */
 #welcome{
   position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;
   align-items:center;background:url('smoke.gif') center/cover no-repeat;background-color:#000;
@@ -23,20 +23,30 @@ html,body{width:100vw;height:100vh;background:var(--bg);color:var(--text);
 }
 #welcome h1{
   color:var(--accent);font-size:28px;margin-bottom:20px;
-  text-shadow:0 0 10px rgba(240,184,90,0.6);
+  text-shadow:0 0 12px rgba(240,184,90,0.6), 0 0 24px rgba(240,184,90,0.25);
+  animation: glow 3.2s ease-in-out infinite;
+}
+@keyframes glow {
+  0%,100% { text-shadow:0 0 10px rgba(240,184,90,.45),0 0 18px rgba(240,184,90,.2); opacity:.96; }
+  50%    { text-shadow:0 0 18px rgba(240,184,90,.85),0 0 30px rgba(240,184,90,.35); opacity:1; }
 }
 #welcome img.logo-main{
   width:200px;margin-bottom:20px;animation:float 6s ease-in-out infinite;
 }
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
 #welcome .enter-btn{
-  width:110px;height:110px;border-radius:50%;
+  width:118px;height:118px;border-radius:50%;
   background:radial-gradient(circle at 50% 50%,#f0b85a 0%,#d79e45 60%,#000 100%);
   display:flex;justify-content:center;align-items:center;
   box-shadow:0 0 25px rgba(240,184,90,0.5);
   cursor:pointer;transition:transform .25s ease,box-shadow .25s ease;
+  animation:pulse 2.6s ease-in-out infinite;
 }
-#welcome .enter-btn:hover{transform:scale(1.1);box-shadow:0 0 35px rgba(240,184,90,0.8);}
-@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+#welcome .enter-btn:hover{transform:scale(1.08);box-shadow:0 0 35px rgba(240,184,90,0.8);}
+@keyframes pulse {
+  0%,100% { box-shadow:0 0 20px rgba(240,184,90,.45); transform:scale(1); }
+  50%     { box-shadow:0 0 36px rgba(240,184,90,.85); transform:scale(1.04); }
+}
 
 /* === Основное приложение === */
 #root{opacity:0;transition:opacity 1s ease;overflow-y:auto;height:100vh;}
@@ -58,6 +68,7 @@ header.title{text-align:center;font-size:20px;font-weight:700;color:var(--muted)
 .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
 .btn.small{padding:4px 8px;font-size:12px;border-radius:8px}
 .btn.ghost{background:transparent;border-color:#2a2a2a}
+.btn.danger{background:#3a0d0d;border-color:#5a1a1a;color:#ffbaba}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .grid{display:grid;gap:8px}
 .input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:#fff;
@@ -129,20 +140,51 @@ const smartDesc=(parts)=>{
   if(!parts.length)return"";const s=[...parts].sort((a,b)=>b.percent-a.percent);
   const base=s.slice(0,2).map(t=>t.taste).join(" и ");
   const acc=s.slice(2,4).map(t=>t.taste).join(" и ");
-  const tone=["лёгкий","мягкий","выразительный","насыщенный"][Math.min(3,Math.floor(s.reduce((a,x)=>a+x.strength,0)/s.length/3))];
+  const avg = s.reduce((a,x)=>a+x.strength,0)/s.length;
+  const tone = avg>=7?"насыщенный":avg>=5?"выразительный":avg>=3?"мягкий":"лёгкий";
   return `${tone} микс: ${base}${acc?(" с оттенками "+acc):""}`;
 };
+
+// === Фоллбэки для banned-слов (если на сервере нет /api/banned) ===
+async function loadBanned(){
+  try{
+    const r = await fetch("/api/banned");
+    if(!r.ok) throw 0;
+    return await r.json();
+  }catch{
+    // local fallback
+    try{ return JSON.parse(localStorage.getItem("h.banned")||"[]"); }catch{ return []; }
+  }
+}
+async function saveBanned(list){
+  try{
+    await fetch("/api/banned",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(list)});
+  }catch{
+    localStorage.setItem("h.banned", JSON.stringify(list));
+  }
+}
 
 function App(){
   const [tab,setTab]=useState("community");
   const [brands,setBrands]=useState([]);
   const [mixes,setMixes]=useState([]);
   const [likes,setLikes]=useState({});
+  const [banned,setBanned]=useState([]);
 
+  // загрузка библиотеки, миксов и banned
   useEffect(()=>{
     fetch("/api/library").then(r=>r.json()).then(setBrands);
     fetch("/api/mixes").then(r=>r.json()).then(setMixes);
+    loadBanned().then(setBanned);
   },[]);
+
+  // автофильтр миксов при изменении banned
+  useEffect(()=>{
+    if(!banned || !banned.length) return;
+    setMixes(prev => prev.filter(m =>
+      !banned.some(w => (m.title||"").toLowerCase().includes(String(w).toLowerCase()))
+    ));
+  },[banned]);
 
   // === Лайки ===
   const toggleLike=async(id)=>{
@@ -158,10 +200,12 @@ function App(){
   // === Конструктор ===
   const [selected,setSelected]=useState(null);
   const [parts,setParts]=useState([]);
+  const [search,setSearch]=useState("");
   const selectedBrand=brands.find(b=>b.id===selected);
   const total=parts.reduce((a,b)=>a+b.percent,0);
   const avg=parts.length&&total>0?Math.round(parts.reduce((a,p)=>a+p.percent*p.strength,0)/total):0;
   const remaining=Math.max(0,100-total);
+
   const addFlavor=(brandId,fl)=>{
     if(remaining<=0)return;
     const key=`${brandId}:${fl.id}`;
@@ -180,18 +224,25 @@ function App(){
   const saveMix=async()=>{
     if(total!==100)return alert("Сумма процентов должна быть 100%");
     const title=prompt("Введите название микса:");if(!title)return;
+
+    // проверка на banned
+    const bad = banned.find(w => title.toLowerCase().includes(String(w).toLowerCase()));
+    if(bad){ alert(`❌ В названии найдено запрещённое слово: "${bad}"`); return; }
+
     const mix={name:title.trim(),author:CURRENT_USER_NAME,flavors:parts,avgStrength:avg};
     const r=await fetch("/api/mixes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(mix)});
     const res=await r.json();
     if(res.success){alert("✅ Микс сохранён");setParts([]);fetch("/api/mixes").then(r=>r.json()).then(setMixes);}
   };
 
-  // === Admin ===
+  // === Admin: brands/flavors + banned ===
   const [brandName,setBrandName]=useState("");
   const [flavorName,setFlavorName]=useState("");
   const [flavorTaste,setFlavorTaste]=useState("");
   const [flavorStrength,setFlavorStrength]=useState(5);
   const [brandForFlavor,setBrandForFlavor]=useState("");
+  const [banInput,setBanInput]=useState("");
+
   const saveLib=async(lib)=>{
     await fetch("/api/library",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lib)});
   };
@@ -206,12 +257,27 @@ function App(){
   const delBrand=id=>{const next=brands.filter(b=>b.id!==id);setBrands(next);saveLib(next);};
   const delFlavor=(bid,fid)=>{const next=brands.map(b=>b.id===bid?{...b,flavors:b.flavors.filter(f=>f.id!==fid)}:b);setBrands(next);saveLib(next);};
 
+  const addBan=async()=>{
+    const w = (banInput||"").trim();
+    if(!w) return;
+    const list = Array.from(new Set([...(banned||[]), w]));
+    setBanned(list);
+    await saveBanned(list);
+    setBanInput("");
+  };
+  const delBan=async(word)=>{
+    const list = (banned||[]).filter(x=>String(x)!==String(word));
+    setBanned(list);
+    await saveBanned(list);
+  };
+
   // === UI ===
-  const DIR=["десертный","свежий","фруктовый","алкогольный","пряный"];
+  const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
   const [pref,setPref]=useState("all");
   const [strength,setStrength]=useState(5);
-  const rec=mixes.filter(m=>pref==="all"||m.parts.some(p=>p.taste.toLowerCase().includes(pref)))
-                 .filter(m=>Math.abs(m.avgStrength-strength)<=1);
+  const rec = mixes
+    .filter(m=>pref==="all"||m.parts.some(p=>(p.taste||"").toLowerCase().includes(pref)))
+    .filter(m=>Math.abs((m.avgStrength||0)-strength)<=1);
 
   return(
   <div className="container">
@@ -223,55 +289,175 @@ function App(){
     </div>
 
     {tab==='community'&&(
-      <div className="card"><div className="hd"><h3>Рекомендации</h3></div>
-      <div className="bd">
-        <div className="grid-2"><button className={"btn "+(pref==='all'?'accent':'')} onClick={()=>setPref('all')}>Все</button>
-        {DIR.map(t=><button key={t} className={"btn "+(pref===t?'accent':'')} onClick={()=>setPref(t)}>{t}</button>)}</div>
-        <div>Крепость: {strength}</div>
-        <input type="range" min="1" max="10" value={strength} onChange={e=>setStrength(+e.target.value)}/>
-        {rec.map(m=><div key={m.id} className="mix-card"><div className="row between">
-          <div><b>{m.title}</b><div className="tiny muted">от {m.author}</div></div>
-          <button className={"btn "+(likes[m.id]?'accent':'')} onClick={()=>toggleLike(m.id)}>❤ {m.likes}</button></div>
-          <div className="tiny">Крепость {m.avgStrength}</div><div className="tiny muted">{smartDesc(m.parts)}</div></div>)}
-      </div></div>
+      <div className="card">
+        <div className="hd"><h3>Рекомендации</h3><p className="desc">Выберите настроение и крепость</p></div>
+        <div className="bd">
+          <div className="grid-2">
+            <button className={"btn "+(pref==='all'?'accent':'')} onClick={()=>setPref('all')}>Все</button>
+            {DIR.map(t=><button key={t} className={"btn "+(pref===t?'accent':'')} onClick={()=>setPref(t)}>{t}</button>)}
+          </div>
+          <div className="sep"></div>
+          <div>Крепость: <b>{strength}</b></div>
+          <input type="range" min="1" max="10" value={strength} onChange={e=>setStrength(+e.target.value)}/>
+          <div className="sep"></div>
+          <div className="grid">
+            {rec.map(m=>(
+              <div key={m.id} className="mix-card">
+                <div className="row between">
+                  <div>
+                    <div style={{fontWeight:600}}>{m.title}</div>
+                    <div className="tiny muted">от {m.author}</div>
+                  </div>
+                  <button className={"btn "+(likes[m.id]?'accent':'')} onClick={()=>toggleLike(m.id)}>❤ {m.likes}</button>
+                </div>
+                <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
+                <div className="tiny muted">Состав: {m.parts.map(p=>`${p.name} ${p.percent}%`).join(' + ')}</div>
+                <div className="tiny">{smartDesc(m.parts)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     )}
 
     {tab==='builder'&&(
       <>
-      <div className="card"><div className="hd"><h3>Бренды</h3></div>
-        <div className="bd grid-2">{brands.filter(b=>!b.hidden).map(b=>
-          <button key={b.id} className={"brand-btn"+(selected===b.id?' active':'')} onClick={()=>setSelected(b.id)}>{b.name}</button>)}</div></div>
-      {selectedBrand&&(
-        <div className="card"><div className="hd"><h3>{selectedBrand.name}</h3></div>
-        <div className="bd grid">{selectedBrand.flavors.filter(f=>!f.hidden).map(f=>
-          <div key={f.id} className="flavor-item"><div><b>{f.name}</b><div className="tiny muted">{f.taste}</div></div>
-          <button className="btn" onClick={()=>addFlavor(selectedBrand.id,f)}>+ в микс</button></div>)}</div></div>)}
-      <div className="card"><div className="hd"><h3>Ваш микс</h3></div>
-      <div className="bd grid">{parts.map(p=>
-        <div key={p.key} className="mix-card"><div className="row between"><b>{p.name}</b>
-          <button className="btn small" onClick={()=>removePart(p.key)}>×</button></div>
-        <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e=>updatePct(p.key,+e.target.value)}/>
-        <div className="tiny muted">{p.percent}%</div></div>)}
-        <div className="tiny muted">Итого {total}% (осталось {100-total}%) • Крепость {avg}</div>
-        <button className={"btn "+(total===100?'accent':'')} onClick={saveMix} disabled={total!==100}>Сохранить</button></div></div>
+        <div className="card">
+          <div className="hd"><h3>Бренды</h3><p className="desc">Выберите бренд и добавляйте вкусы</p></div>
+          <div className="bd grid-2">
+            {brands.filter(b=>!b.hidden).map(b=>
+              <button key={b.id} className={"brand-btn"+(selected===b.id?' active':'')} onClick={()=>setSelected(b.id)}>{b.name}</button>
+            )}
+          </div>
+        </div>
+
+        {selectedBrand&&(
+          <div className="card">
+            <div className="hd"><h3>Вкусы — {selectedBrand.name}</h3><p className="desc">Добавьте вкус в микс</p></div>
+            <div className="bd grid">
+              <input className="input" placeholder="Поиск по вкусам…" value={search} onChange={e=>setSearch(e.target.value)} />
+              {selectedBrand.flavors
+                .filter(f=>!f.hidden)
+                .filter(f=>{
+                  const q=search.toLowerCase();
+                  return (f.name||"").toLowerCase().includes(q) || (f.taste||"").toLowerCase().includes(q);
+                })
+                .map(f=>(
+                  <div key={f.id} className="flavor-item">
+                    <div>
+                      <div style={{fontWeight:600}}>{f.name}</div>
+                      <div className="tiny muted">крепость: {f.strength} • вкус: {f.taste}</div>
+                    </div>
+                    <button className="btn" onClick={()=>addFlavor(selectedBrand.id,f)}>+ в микс</button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div className="card">
+          <div className="hd"><h3>Ваш микс</h3><p className="desc">Сумма должна быть 100%</p></div>
+          <div className="bd grid">
+            {parts.map(p=>(
+              <div key={p.key} className="mix-card">
+                <div className="row between">
+                  <div>
+                    <div style={{fontWeight:600}}>{p.name}</div>
+                    <div className="tiny muted">крепость: {p.strength} • вкус: {p.taste}</div>
+                  </div>
+                  <button className="btn" onClick={()=>removePart(p.key)}>удалить</button>
+                </div>
+                <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e=>updatePct(p.key,+e.target.value)}/>
+                <div className="row between tiny muted"><span>0%</span><span>{p.percent}%</span><span>100%</span></div>
+              </div>
+            ))}
+            <div className="sep"></div>
+            <div className="row between tiny muted">
+              <div>Сумма: <b>{total}%</b> (осталось: <b>{Math.max(0,100-total)}%</b>)</div>
+              <div>крепость: <b>{avg||0}</b></div>
+            </div>
+            <button className={"btn "+(total===100?'accent':'')} onClick={saveMix} disabled={total!==100}>Сохранить</button>
+          </div>
+        </div>
+
+        <!-- Мгновенный preview описания (даже если <100%) -->
+        <div className="card">
+          <div className="hd"><h3>Итоговый вкус</h3><p className="desc">Короткое описание микса обновляется в реальном времени</p></div>
+          <div className="bd">
+            {parts.length===0 ? <div className="muted tiny">Ещё нет выбранных вкусов.</div> : <div className="tiny">{smartDesc(parts)}</div>}
+          </div>
+        </div>
       </>
     )}
 
     {IS_ADMIN&&tab==='admin'&&(
       <>
-        <div className="card"><div className="hd"><h3>Бренды</h3></div>
-        <div className="bd grid"><div className="row"><input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/>
-          <button className="btn" onClick={addBrand}>+</button></div>
-        {brands.map(b=><div key={b.id} className="mix-card"><div className="row between"><b>{b.name}</b>
-          <div className="row"><button className="btn small ghost" onClick={()=>toggleHidden(b.id)}>{b.hidden?"показать":"скрыть"}</button>
-          <button className="btn small danger" onClick={()=>delBrand(b.id)}>×</button></div></div></div>)}</div></div>
-        <div className="card"><div className="hd"><h3>Добавить вкус</h3></div>
-        <div className="bd grid"><select className="input" value={brandForFlavor} onChange={e=>setBrandForFlavor(e.target.value)}>
-          <option value="">Бренд</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>
-          <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e=>setFlavorName(e.target.value)}/>
-          <input className="input" placeholder="Описание вкуса" value={flavorTaste} onChange={e=>setFlavorTaste(e.target.value)}/>
-          <label>Крепость: {flavorStrength}</label><input type="range" min="1" max="10" value={flavorStrength} onChange={e=>setFlavorStrength(+e.target.value)}/>
-          <button className="btn accent" onClick={addFlavorAdmin}>Добавить</button></div></div>
+        <div className="card">
+          <div className="hd"><h3>Бренды</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+          <div className="bd">
+            <div className="row">
+              <input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/>
+              <button className="btn" onClick={addBrand}>Добавить</button>
+            </div>
+            <div className="sep"></div>
+            <div className="grid-2">
+              {brands.map(b=>(
+                <div key={b.id} className="mix-card">
+                  <div className="row between">
+                    <div>
+                      <div style={{fontWeight:600}}>{b.name}</div>
+                      <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                      {b.hidden?<div className="badge hidden">скрыт</div>:<div className="badge ok">доступен</div>}
+                    </div>
+                    <div className="grid">
+                      <button className="btn small ghost" onClick={()=>toggleHidden(b.id)}>{b.hidden?"показать":"скрыть"}</button>
+                      <button className="btn small danger" onClick={()=>delBrand(b.id)}>удалить</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="hd"><h3>Вкусы</h3><p className="desc">Добавить вкус к бренду</p></div>
+          <div className="bd grid">
+            <select className="input" value={brandForFlavor} onChange={e=>setBrandForFlavor(e.target.value)}>
+              <option value="">Выбери бренд</option>
+              {brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e=>setFlavorName(e.target.value)}/>
+            <input className="input" placeholder="Описание вкуса" value={flavorTaste} onChange={e=>setFlavorTaste(e.target.value)}/>
+            <label>Крепость: {flavorStrength}</label>
+            <input type="range" min="1" max="10" value={flavorStrength} onChange={e=>setFlavorStrength(+e.target.value)}/>
+            <button className="btn accent" onClick={addFlavorAdmin}>Добавить вкус</button>
+          </div>
+        </div>
+
+        <!-- БАН-ЛИСТ -->
+        <div className="card">
+          <div className="hd"><h3>Запрещённые слова</h3><p className="desc">Миксы с такими словами удаляются из списка и не сохраняются</p></div>
+          <div className="bd">
+            <div className="row">
+              <input className="input" placeholder="Добавить слово" value={banInput} onChange={e=>setBanInput(e.target.value)} />
+              <button className="btn" onClick={addBan}>Добавить</button>
+            </div>
+            <div className="sep"></div>
+            {(!banned || banned.length===0) ? (
+              <div className="tiny muted">Список пуст.</div>
+            ) : (
+              <div className="grid">
+                {banned.map(w=>(
+                  <div key={w} className="row between mix-card">
+                    <div className="tiny">{w}</div>
+                    <button className="btn small danger" onClick={()=>delBan(w)}>удалить</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </>
     )}
   </div>);
