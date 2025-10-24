@@ -108,7 +108,7 @@ app.post("/api/banned", (req, res) => {
 });
 
 // === Запрещённые слова (удаление миксов у всех) ===
-const PATH_BANNED = path.join(DATA_DIR, "banned.json");
+const PATH_BANNED = path.join(__dirname, "banned.json");
 if (!fs.existsSync(PATH_BANNED)) fs.writeFileSync(PATH_BANNED, "[]", "utf-8");
 
 app.get("/api/banned", (req, res) => {
