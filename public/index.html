@@ -1,318 +1,1030 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Кальянный Миксер</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root {
-  --bg:#000; --panel:#0c0c0c; --panel-2:#151515; --border:#242424;
-  --text:#fff; --muted:#f0e9db; --accent:#f0b85a;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-html,body{width:100vw;height:100vh;background:var(--bg);color:var(--text);
-  font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden;}
-.hidden{opacity:0;pointer-events:none;transition:opacity 1s ease;}
+:root { --bg:#000; --accent:#f0b85a; --text:#fff; }
+* { box-sizing:border-box;margin:0;padding:0; }
+html,body { width:100vw;height:100vh;background:var(--bg);color:var(--text);
+  font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden; height:100%; }
+.hidden { opacity:0;pointer-events:none;transition:opacity 1s ease; }
+#welcome-wrapper { position:fixed;inset:0;z-index:9999;transition:opacity 1s ease; }
 
-/* === Вступительный экран (добавлены анимации) === */
-#welcome{
-  position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;
-  align-items:center;background:url('smoke.gif') center/cover no-repeat;background-color:#000;
-  z-index:10;text-align:center;transition:opacity 1s ease;
-}
-#welcome h1{
-  color:var(--accent);font-size:28px;margin-bottom:20px;
-  text-shadow:0 0 12px rgba(240,184,90,0.6), 0 0 24px rgba(240,184,90,0.25);
-  animation: glow 3.2s ease-in-out infinite;
-}
-@keyframes glow {
-  0%,100% { text-shadow:0 0 10px rgba(240,184,90,.45),0 0 18px rgba(240,184,90,.2); opacity:.96; }
-  50%    { text-shadow:0 0 18px rgba(240,184,90,.85),0 0 30px rgba(240,184,90,.35); opacity:1; }
-}
-#welcome img.logo-main{
-  width:200px;margin-bottom:20px;animation:float 6s ease-in-out infinite;
-}
-@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
-#welcome .enter-btn{
-  width:118px;height:118px;border-radius:50%;
-  background:radial-gradient(circle at 50% 50%,#f0b85a 0%,#d79e45 60%,#000 100%);
-  display:flex;justify-content:center;align-items:center;
-  box-shadow:0 0 25px rgba(240,184,90,0.5);
-  cursor:pointer;transition:transform .25s ease,box-shadow .25s ease;
-  animation:pulse 2.6s ease-in-out infinite;
-}
-#welcome .enter-btn:hover{transform:scale(1.08);box-shadow:0 0 35px rgba(240,184,90,0.8);}
-@keyframes pulse {
-  0%,100% { box-shadow:0 0 20px rgba(240,184,90,.45); transform:scale(1); }
-  50%     { box-shadow:0 0 36px rgba(240,184,90,.85); transform:scale(1.04); }
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    text-align: center;
+    margin-bottom: 5vh;
+  }
+  #welcome-wrapper img {
+    max-width: 70vw !important;
+    height: auto !important;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 24vw !important;
+    height: 24vw !important;
+    margin-top: 4vh;
+  }
 }
 
-/* === Основное приложение === */
-#root{opacity:0;transition:opacity 1s ease;overflow-y:auto;height:100vh;}
-.container{max-width:420px;margin:0 auto;padding:16px;display:grid;gap:16px}
-header.title{text-align:center;font-size:20px;font-weight:700;color:var(--muted)}
-.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--panel-2);
-  padding:6px;border-radius:14px;}
-.tab-btn{background:transparent;border:none;color:#fff;padding:10px 12px;
-  border-radius:10px;cursor:pointer;transition:.15s transform,.2s background,.2s color}
-.tab-btn.active{background:var(--accent);color:#000}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:16px}
-.card .hd{padding:14px 14px 0 14px}
-.card .hd h3{margin:0;font-size:18px}
-.card .hd .desc{margin:0 0 10px;font-size:12px;color:rgba(240,233,219,.7)}
-.card .bd{padding:12px 14px 14px 14px}
-.btn{background:#1f1f1f;border:1px solid #2a2a2a;color:#fff;border-radius:10px;
-  padding:8px 10px;cursor:pointer;transition:.15s transform,.2s background,.2s color}
-.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(0) scale(.98)}
-.btn.accent{background:var(--accent);color:#000;border-color:var(--accent)}
-.btn.small{padding:4px 8px;font-size:12px;border-radius:8px}
-.btn.ghost{background:transparent;border-color:#2a2a2a}
-.btn.danger{background:#3a0d0d;border-color:#5a1a1a;color:#ffbaba}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.grid{display:grid;gap:8px}
-.input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:#fff;
-  border-radius:10px;padding:10px}
-.mix-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
-.tiny{font-size:11px}.muted{opacity:.75}.sep{height:1px;background:var(--border);margin:8px 0}
-.row{display:flex;gap:8px;align-items:center}.row.between{justify-content:space-between}
-.brand-btn{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;
-  padding:12px;text-align:center;color:var(--text);cursor:pointer;transition:.15s transform}
-.brand-btn.active{background:var(--accent);border-color:var(--accent);color:#000}
-.flavor-item{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);
-  border:1px solid var(--border);border-radius:12px;padding:10px}
-input[type=range]{width:100%;accent-color:var(--accent)}
-.badge{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;
-  border:1px solid var(--border);background:var(--panel-2);font-size:11px}
-.badge.hidden{border-color:#503333;background:#2a1a1a;color:#ffbaba}
-.badge.ok{border-color:#2c4737;background:#16271d;color:#bff5d6}
+#welcome-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: url('smoke.gif') center center/cover no-repeat;
+  background-color: #000;
+}
+#welcome-wrapper h1 {
+  margin-bottom: 20px;
+}
+#welcome-wrapper img.logo-main {
+  display: block;
+  margin: 0 auto 20px auto;
+}
+#welcome-wrapper .logo-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    padding: 0 5vw;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    margin-bottom: 3vh;
+  }
+  #welcome-wrapper img.logo-main {
+    max-width: 60vw !important;
+    margin-bottom: 4vh;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 26vw !important;
+    height: 26vw !important;
+    margin-top: 2vh;
+  }
+}
+
+#welcome-wrapper h1 {
+  font-size: 40px !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(240, 184, 90, 0.6);
+  color: #f0b85a;
+  line-height: 1.4;
+  text-align: center;
+  margin-bottom: 25px;
+}
+#welcome-wrapper img.logo-main {
+  width: 300px !important;
+  max-width: 80vw !important;
+  margin-bottom: 25px;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper h1 {
+    font-size: 8vw !important;
+    text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 18px rgba(240,184,90,0.8);
+  }
+  #welcome-wrapper img.logo-main {
+    width: 70vw !important;
+  }
+}
 </style>
+
+
+
 </head>
 <body>
 
-<!-- Вступительный экран -->
-<div id="welcome">
-  <h1>Добро пожаловать<br>в мир кальянной миксологии</h1>
-  <img src="Logo%20Black.png" class="logo-main" alt="logo">
-  <div class="enter-btn" onclick="enterApp()">
-    <img src="enter.png" alt="enter" style="width:60%;border-radius:50%">
+<!-- Приветственная страница -->
+<div id="welcome-wrapper">
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Добро пожаловать — Кальянный Миксер</title>
+  <style>
+    :root {
+      --bg: #000;
+      --accent: #f0b85a;
+      --text: #fff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif;
+    }
+
+    /* === Фон (анимированный GIF) === */
+    .bg-smoke {
+      position: absolute;
+      inset: 0;
+      background: url('smoke.gif') center center / cover no-repeat;
+      opacity: 0.6;
+      z-index: 0;
+    }
+
+    /* === Контент === */
+    .container {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      gap: 24px;
+      animation: fadein 1.5s ease;
+      padding: 20px;
+    }
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1.4;
+      text-shadow: 0 0 12px rgba(240,184,90,0.35);
+    }
+
+    .logo-main {
+      width: 150px;
+      max-width: 60%;
+      opacity: 0.95;
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* === Кнопка === */
+    .logo-btn {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, #f0b85a 0%, #d79e45 60%, #000 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(240,184,90,0.5);
+      animation: pulse 3s infinite ease-in-out;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .logo-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 35px rgba(240,184,90,0.8);
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 25px rgba(240,184,90,0.4); }
+      50% { box-shadow: 0 0 40px rgba(240,184,90,0.9); }
+    }
+    .logo-btn img {
+      width: 70%;
+      height: 70%;
+      border-radius: 50%;
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 16px; }
+      .logo-main { width: 120px; }
+      .logo-btn { width: 90px; height: 90px; }
+    }
+  
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    text-align: center;
+    margin-bottom: 5vh;
+  }
+  #welcome-wrapper img {
+    max-width: 70vw !important;
+    height: auto !important;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 24vw !important;
+    height: 24vw !important;
+    margin-top: 4vh;
+  }
+}
+
+#welcome-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: url('smoke.gif') center center/cover no-repeat;
+  background-color: #000;
+}
+#welcome-wrapper h1 {
+  margin-bottom: 20px;
+}
+#welcome-wrapper img.logo-main {
+  display: block;
+  margin: 0 auto 20px auto;
+}
+#welcome-wrapper .logo-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    padding: 0 5vw;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    margin-bottom: 3vh;
+  }
+  #welcome-wrapper img.logo-main {
+    max-width: 60vw !important;
+    margin-bottom: 4vh;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 26vw !important;
+    height: 26vw !important;
+    margin-top: 2vh;
+  }
+}
+
+#welcome-wrapper h1 {
+  font-size: 40px !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(240, 184, 90, 0.6);
+  color: #f0b85a;
+  line-height: 1.4;
+  text-align: center;
+  margin-bottom: 25px;
+}
+#welcome-wrapper img.logo-main {
+  width: 300px !important;
+  max-width: 80vw !important;
+  margin-bottom: 25px;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper h1 {
+    font-size: 8vw !important;
+    text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 18px rgba(240,184,90,0.8);
+  }
+  #welcome-wrapper img.logo-main {
+    width: 70vw !important;
+  }
+}
+</style>
+
+
+
+</head>
+<body>
+  <div class="bg-smoke"></div>
+
+  <div class="container">
+    <h1>Добро пожаловать в мир кальянной миксологии от</h1>
+    <img src="Logo%20Black.png" class="logo-main" alt="Logo 1">
+    <div class="logo-btn" onclick="enterApp()">
+      <img src="╨Ч╨╜╨░╤З╨╛╨║.png" alt="Logo 2">
+    </div>
   </div>
+
+  <script>
+    function enterApp() {
+      document.body.style.transition = "opacity 1s ease";
+      document.body.style.opacity = "0";
+      setTimeout(() => window.location.href = "index.html", 1000);
+    }
+  </script>
+</body>
+</html>
+
 </div>
 
 <!-- Основное React-приложение -->
-<div id="root"></div>
+<div id="app-root" style="opacity:0;transition:opacity 1s ease;">
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Кальянный Миксер — Enhanced Stable</title>
 
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+  <!-- ✅ Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<!-- приложение React вынесено в отдельный <script type="text/babel"> -->
-<script type="text/babel" data-presets="react">
-const {useState,useEffect}=React;
-
-let tg=window.Telegram?.WebApp||null;
-let CURRENT_USER_ID=0,CURRENT_USERNAME="",CURRENT_USER_NAME="Гость";
-const ADMIN_USERNAMES=["tutenhaman","brgmnstrr"];
-const ADMIN_IDS=[504348666,2015942051];
-try{
- if(tg&&tg.initDataUnsafe?.user){
-   const u=tg.initDataUnsafe.user;
-   CURRENT_USER_ID=u.id;
-   CURRENT_USERNAME=(u.username||"").toLowerCase();
-   CURRENT_USER_NAME=[u.first_name,u.last_name].filter(Boolean).join(" ")||"Гость";
- }
-}catch{}
-const IS_ADMIN=ADMIN_USERNAMES.includes(CURRENT_USERNAME)||ADMIN_IDS.includes(CURRENT_USER_ID);
-
-const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-const smartDesc=(parts)=>{
- if(!parts.length)return"";
- const s=[...parts].sort((a,b)=>b.percent-a.percent);
- const base=s.slice(0,2).map(t=>t.taste).join(" и ");
- const acc=s.slice(2,4).map(t=>t.taste).join(" и ");
- const avg=s.reduce((a,x)=>a+x.strength,0)/s.length;
- const tone=avg>=7?"насыщенный":avg>=5?"выразительный":avg>=3?"мягкий":"лёгкий";
- return `${tone} микс: ${base}${acc?(" с оттенками "+acc):""}`;
-};
-
-async function loadBanned(){
- try{
-   const r=await fetch("/api/banned");
-   if(!r.ok)throw 0;
-   return await r.json();
- }catch{
-   try{return JSON.parse(localStorage.getItem("h.banned")||"[]");}catch{return[];}
- }
+  <style>
+    :root{
+      --bg:#000; --panel:#0c0c0c; --panel-2:#151515; --border:#242424;
+      --text:#fff; --muted:#f0e9db; --accent:#f0b85a;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:420px;margin:0 auto;padding:16px;display:grid;gap:16px}
+    header.title{font-weight:700;text-align:center;color:var(--muted);font-size:20px}
+    .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--panel-2);padding:6px;border-radius:14px}
+    .tab-btn{background:transparent;border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s transform,.2s background,.2s color}
+    .tab-btn:hover{transform:translateY(-1px)} .tab-btn:active{transform:translateY(0) scale(.98)}
+    .tab-btn.active{background:var(--accent);color:#000}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px}
+    .card .hd{padding:14px 14px 0 14px} .card .hd h3{margin:0 0 2px 0;font-size:18px}
+    .card .hd .desc{margin:0 0 10px 0;font-size:12px;color:rgba(240,233,219,.7)}
+    .card .bd{padding:12px 14px 14px 14px}
+    .btn{background:#1f1f1f;border:1px solid #2a2a2a;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border}
+    .btn:hover{transform:translateY(-1px)} .btn:active{transform:translateY(0) scale(.98)}
+    .btn.accent{background:var(--accent);color:#000;border-color:var(--accent)} .btn.small{padding:4px 8px;font-size:12px;border-radius:8px}
+    .btn.ghost{background:transparent;border-color:#2a2a2a}
+    .btn.danger{background:#3a0d0d;border-color:#5a1a1a;color:#ffbaba}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px} .grid{display:grid;gap:8px}
+    .brand-btn{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);cursor:pointer;transition:.15s transform,.2s background,.2s color,.2s border;text-align:center}
+    .brand-btn:hover{transform:translateY(-1px)} .brand-btn:active{transform:translateY(0) scale(.98)} .brand-btn.active{background:var(--accent);border-color:var(--accent);color:#000}
+    .row{display:flex;gap:8px;align-items:center} .row.between{justify-content:space-between}
+    .space{height:8px}
+    .input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:#fff;border-radius:10px;padding:10px}
+    .mix-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
+    .tiny{font-size:11px} .muted{opacity:.75} .sep{height:1px;background:var(--border);margin:8px 0}
+    .taste-line{font-size:13px;opacity:.92}
+    .flavor-item{display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px}
+    input[type=range]{width:100%;accent-color:var(--accent)}
+    /* ➕ Бейджи статуса (как в старом файле) */
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-size:11px}
+    .badge.hidden{border-color:#503333;background:#2a1a1a;color:#ffbaba}
+    .badge.ok{border-color:#2c4737;background:#16271d;color:#bff5d6}
+  
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    text-align: center;
+    margin-bottom: 5vh;
+  }
+  #welcome-wrapper img {
+    max-width: 70vw !important;
+    height: auto !important;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 24vw !important;
+    height: 24vw !important;
+    margin-top: 4vh;
+  }
 }
-async function saveBanned(list){
- try{
-   await fetch("/api/banned",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(list)});
- }catch{
-   localStorage.setItem("h.banned",JSON.stringify(list));
- }
+
+#welcome-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: url('smoke.gif') center center/cover no-repeat;
+  background-color: #000;
+}
+#welcome-wrapper h1 {
+  margin-bottom: 20px;
+}
+#welcome-wrapper img.logo-main {
+  display: block;
+  margin: 0 auto 20px auto;
+}
+#welcome-wrapper .logo-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper {
+    padding: 0 5vw;
+  }
+  #welcome-wrapper h1 {
+    font-size: 5vw !important;
+    margin-bottom: 3vh;
+  }
+  #welcome-wrapper img.logo-main {
+    max-width: 60vw !important;
+    margin-bottom: 4vh;
+  }
+  #welcome-wrapper .logo-btn {
+    width: 26vw !important;
+    height: 26vw !important;
+    margin-top: 2vh;
+  }
 }
 
-function App(){
- const [tab,setTab]=useState("community");
- const [brands,setBrands]=useState([]);
- const [mixes,setMixes]=useState([]);
- const [likes,setLikes]=useState({});
- const [banned,setBanned]=useState([]);
- const [brandName,setBrandName]=useState(""),[flavorName,setFlavorName]=useState(""),[flavorTaste,setFlavorTaste]=useState(""),[flavorStrength,setFlavorStrength]=useState(5),[brandForFlavor,setBrandForFlavor]=useState(""),[banInput,setBanInput]=useState("");
+#welcome-wrapper h1 {
+  font-size: 40px !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(240, 184, 90, 0.6);
+  color: #f0b85a;
+  line-height: 1.4;
+  text-align: center;
+  margin-bottom: 25px;
+}
+#welcome-wrapper img.logo-main {
+  width: 300px !important;
+  max-width: 80vw !important;
+  margin-bottom: 25px;
+}
+@media (max-width: 768px) {
+  #welcome-wrapper h1 {
+    font-size: 8vw !important;
+    text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 18px rgba(240,184,90,0.8);
+  }
+  #welcome-wrapper img.logo-main {
+    width: 70vw !important;
+  }
+}
+</style>
 
- useEffect(()=>{
-   fetch("/api/library").then(r=>r.json()).then(setBrands);
-   fetch("/api/mixes").then(r=>r.json()).then(setMixes);
-   loadBanned().then(setBanned);
- },[]);
 
- useEffect(()=>{
-   if(!banned||!banned.length)return;
-   setMixes(prev=>prev.filter(m=>!banned.some(w=>(m.title||"").toLowerCase().includes(String(w).toLowerCase()))));
- },[banned]);
 
- const toggleLike=async(id)=>{
-   const already=!!likes[id];const delta=already?-1:1;
-   const r=await fetch(`/api/mixes/${id}/like`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({delta})});
-   const j=await r.json();
-   if(j.success){setMixes(ms=>ms.map(m=>m.id===id?{...m,likes:j.mix.likes}:m));
-     setLikes(s=>{const n={...s};if(already)delete n[id];else n[id]=1;return n;});}
- };
+</head>
+<body>
+  <div id="root"></div>
 
- const [selected,setSelected]=useState(null),[parts,setParts]=useState([]),[search,setSearch]=useState("");
- const selectedBrand=brands.find(b=>b.id===selected);
- const total=parts.reduce((a,b)=>a+b.percent,0);
- const avg=parts.length&&total>0?Math.round(parts.reduce((a,p)=>a+p.percent*p.strength,0)/total):0;
- const remaining=Math.max(0,100-total);
+  <!-- React / ReactDOM / Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 
- const addFlavor=(brandId,fl)=>{if(remaining<=0)return;
-   const key=`${brandId}:${fl.id}`;
-   setParts(p=>p.some(x=>x.key===key)?p:[...p,{key,brandId,flavorId:fl.id,name:fl.name,taste:fl.taste,strength:fl.strength,percent:Math.min(20,remaining)}]);
- };
- const updatePct=(key,val)=>{setParts(prev=>{const sumOthers=prev.reduce((a,b)=>a+(b.key===key?0:b.percent),0);
-   const allowed=Math.max(0,100-sumOthers);const clamped=clamp(val,0,allowed);
-   return prev.map(x=>x.key===key?{...x,percent:clamped}:x);});};
- const removePart=key=>setParts(p=>p.filter(x=>x.key!==key));
+  <script type="text/babel" data-presets="react">
+    const {useState,useMemo,useEffect} = React;
 
- const saveMix=async()=>{
-   if(total!==100)return alert("Сумма процентов должна быть 100%");
-   const title=prompt("Введите название микса:");if(!title)return;
-   const bad=banned.find(w=>title.toLowerCase().includes(String(w).toLowerCase()));
-   if(bad)return alert(`❌ Запрещённое слово: "${bad}"`);
-   const mix={name:title.trim(),author:CURRENT_USER_NAME,flavors:parts,avgStrength:avg};
-   const r=await fetch("/api/mixes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(mix)});
-   const j=await r.json();if(j.success){alert("✅ Микс сохранён");setParts([]);fetch("/api/mixes").then(r=>r.json()).then(setMixes);}
- };
+    // === AUTH: надёжная идентификация админа (как в старом файле) ===
+    var tg = window.Telegram?.WebApp || null;
+    var CURRENT_USER_ID = 0;
+    var CURRENT_USER_NAME = "Гость";
+    var CURRENT_USERNAME = "";
+    const ADMIN_USERNAMES = ["tutenhaman","Brgmnstrr"]; // usernames без @ (в нижнем регистре)
+    const ADMIN_IDS = [504348666,2015942051];          // Telegram user IDs
 
- const saveLib=async(lib)=>{await fetch("/api/library",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lib)});};
- const addBrand=()=>{const name=brandName.trim();if(!name)return;
-   const id=name.toLowerCase().replace(/\s+/g,"-");const next=[...brands,{id,name,hidden:false,flavors:[]}];
-   setBrands(next);saveLib(next);setBrandName("");};
- const addFlavorAdmin=()=>{const b=brands.find(x=>x.id===brandForFlavor);if(!b)return;
-   const fl={id:flavorName.toLowerCase().replace(/\s+/g,"-"),name:flavorName,strength:flavorStrength,taste:flavorTaste,hidden:false};
-   const next=brands.map(x=>x.id===b.id?{...x,flavors:[...x.flavors,fl]}:x);
-   setBrands(next);saveLib(next);setFlavorName("");setFlavorTaste("");};
- const toggleHidden=(bid,fid)=>{const next=brands.map(b=>b.id!==bid?b:fid?{...b,flavors:b.flavors.map(f=>f.id===fid?{...f,hidden:!f.hidden}:f)}:{...b,hidden:!b.hidden});
-   setBrands(next);saveLib(next);};
- const delBrand=id=>{const next=brands.filter(b=>b.id!==id);setBrands(next);saveLib(next);};
- const delFlavor=(bid,fid)=>{const next=brands.map(b=>b.id===bid?{...b,flavors:b.flavors.filter(f=>f.id!==fid)}:b);setBrands(next);saveLib(next);};
- const addBan=async()=>{const w=(banInput||"").trim();if(!w)return;
-   const list=Array.from(new Set([...(banned||[]),w]));setBanned(list);await saveBanned(list);setBanInput("");};
- const delBan=async(word)=>{const list=(banned||[]).filter(x=>String(x)!==String(word));setBanned(list);await saveBanned(list);};
+    try {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        const u = tg.initDataUnsafe.user;
+        CURRENT_USER_ID = u.id || 0;
+        CURRENT_USERNAME = (u.username || "").toLowerCase();
+        CURRENT_USER_NAME = [u.first_name, u.last_name].filter(Boolean).join(" ") || "Гость";
+      }
+    } catch (e) {
+      console.warn("Ошибка чтения Telegram WebApp данных:", e);
+    }
 
- const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
- const [pref,setPref]=useState("all"),[strength,setStrength]=useState(5);
- const rec=mixes.filter(m=>pref==="all"||m.parts.some(p=>(p.taste||"").toLowerCase().includes(pref)))
-                .filter(m=>Math.abs((m.avgStrength||0)-strength)<=1);
+    // Локальный оффлайн-тест
+    if (!CURRENT_USERNAME && (location.hostname === "localhost" || location.protocol === "file:")) {
+      CURRENT_USERNAME = "tutenhaman","Brgmnstrr";
+      CURRENT_USER_ID = 504348666,2015942051;
+      CURRENT_USER_NAME = "Admin (offline)";
+      console.log("Offline test mode: admin =", CURRENT_USERNAME);
+    }
 
- return(<div className="container">
-  <header className="title">Кальянный Миксер</header>
-  <div className="tabs">
-    <button className={"tab-btn"+(tab==='community'?' active':'')} onClick={()=>setTab('community')}>Миксы</button>
-    <button className={"tab-btn"+(tab==='builder'?' active':'')} onClick={()=>setTab('builder')}>Конструктор</button>
-    {IS_ADMIN&&<button className={"tab-btn"+(tab==='admin'?' active':'')} onClick={()=>setTab('admin')}>Админ</button>}
-  </div>
+    const IS_ADMIN = (CURRENT_USERNAME && ADMIN_USERNAMES.includes(CURRENT_USERNAME)) || ADMIN_IDS.includes(CURRENT_USER_ID);
 
-  {tab==='community'&&(
-    <div className="card"><div className="hd"><h3>Рекомендации</h3></div>
-    <div className="bd">
-      <div className="grid-2"><button className={"btn "+(pref==='all'?'accent':'')} onClick={()=>setPref('all')}>Все</button>
-      {DIR.map(t=><button key={t} className={"btn "+(pref===t?'accent':'')} onClick={()=>setPref(t)}>{t}</button>)}</div>
-      <div>Крепость: {strength}</div>
-      <input type="range" min="1" max="10" value={strength} onChange={e=>setStrength(+e.target.value)}/>
-      {rec.map(m=><div key={m.id} className="mix-card"><div className="row between">
-        <div><b>{m.title}</b><div className="tiny muted">от {m.author}</div></div>
-        <button className={"btn "+(likes[m.id]?'accent':'')} onClick={()=>toggleLike(m.id)}>❤ {m.likes}</button></div>
-        <div className="tiny">Крепость {m.avgStrength}</div><div className="tiny muted">{smartDesc(m.parts)}</div></div>)}
-    </div></div>
-  )}
+    // === Утилиты и данные ===
+    const load=(k,f)=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}};
+    const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+    const slug=s=>s.toLowerCase().trim().split(' ').filter(Boolean).join('-').normalize('NFKD').replace(/[^a-zа-я0-9-]/gi,'');
+    const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+    const calcAvg=ps=>Math.round(ps.reduce((a,b)=>a+b.percent*b.strength,0)/ps.reduce((a,b)=>a+b.percent,0));
+    const useDebouncedValue=(value,delay=220)=>{const [v,setV]=useState(value);useEffect(()=>{const id=setTimeout(()=>setV(value),delay);return()=>clearTimeout(id)},[value,delay]);return v};
 
-  {tab==='builder'&&(
-    <>
-    <div className="card"><div className="hd"><h3>Бренды</h3></div>
-      <div className="bd grid-2">{brands.filter(b=>!b.hidden).map(b=>
-        <button key={b.id} className={"brand-btn"+(selected===b.id?' active':'')} onClick={()=>setSelected(b.id)}>{b.name}</button>)}</div></div>
-    {selectedBrand&&(<div className="card"><div className="hd"><h3>{selectedBrand.name}</h3></div>
-      <div className="bd grid">
-        <input className="input" placeholder="Поиск" value={search} onChange={e=>setSearch(e.target.value)}/>
-        {selectedBrand.flavors.filter(f=>!f.hidden).filter(f=>{const q=search.toLowerCase();return(f.name||"").toLowerCase().includes(q)||(f.taste||"").toLowerCase().includes(q);})
-         .map(f=><div key={f.id} className="flavor-item"><div><b>{f.name}</b><div className="tiny muted">{f.taste}</div></div>
-         <button className="btn" onClick={()=>addFlavor(selectedBrand.id,f)}>+ в микс</button></div>)}
-      </div></div>)}
-    <div className="card"><div className="hd"><h3>Ваш микс</h3></div>
-      <div className="bd grid">{parts.map(p=>
-        <div key={p.key} className="mix-card"><div className="row between"><b>{p.name}</b>
-          <button className="btn small" onClick={()=>removePart(p.key)}>×</button></div>
-        <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e=>updatePct(p.key,+e.target.value)}/>
-        <div className="tiny muted">{p.percent}%</div></div>)}
-        <div className="tiny muted">Итого {total}% (осталось {100-total}%) • Крепость {avg}</div>
-        <button className={"btn "+(total===100?'accent':'')} onClick={saveMix} disabled={total!==100}>Сохранить</button></div></div>
-    <div className="card"><div className="hd"><h3>Предпросмотр</h3></div>
-      <div className="bd"><div className="tiny">{smartDesc(parts)}</div></div></div>
-    </>
-  )}
+    function smartDesc(parts){
+      if(!parts.length)return"";
+      const s=[...parts].sort((a,b)=>b.percent-a.percent);
+      const base=s.slice(0,2).map(t=>t.taste.split(",").map(x=>x.trim()).join(" + ")).join(" и ");
+      const acc=s.slice(2,4);
+      const accStr=acc.length?(" с оттенками "+acc.map(t=>t.taste.split(",").map(x=>x.trim()).join(" + ")).join(" и ")):"";
+      const avg=Math.round(s.reduce((a,x)=>a+x.strength*x.percent,0)/s.reduce((a,x)=>a+x.percent,0));
+      const tone=avg>=7?"насыщенный":avg>=5?"выразительный":avg>=3?"мягкий":"лёгкий";
+      return `${tone} микс: ${base}${accStr}`;
+    }
 
-  {IS_ADMIN&&tab==='admin'&&(
-    <>
-    <div className="card"><div className="hd"><h3>Бренды</h3></div>
-      <div className="bd"><div className="row"><input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/>
-        <button className="btn" onClick={addBrand}>+</button></div>
-      {brands.map(b=><div key={b.id} className="mix-card"><div className="row between"><b>{b.name}</b>
-        <div className="row"><button className="btn small ghost" onClick={()=>toggleHidden(b.id)}>{b.hidden?"показать":"скрыть"}</button>
-        <button className="btn small danger" onClick={()=>delBrand(b.id)}>×</button></div></div></div>)}</div></div>
-    <div className="card"><div className="hd"><h3>Добавить вкус</h3></div>
-      <div className="bd grid"><select className="input" value={brandForFlavor} onChange={e=>setBrandForFlavor(e.target.value)}>
-        <option value="">Бренд</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>
-        <input className="input" placeholder="Вкус" value={flavorName} onChange={e=>setFlavorName(e.target.value)}/>
-        <input className="input" placeholder="Описание" value={flavorTaste} onChange={e=>setFlavorTaste(e.target.value)}/>
-        <label>Крепость {flavorStrength}</label><input type="range" min="1" max="10" value={flavorStrength} onChange={e=>setFlavorStrength(+e.target.value)}/>
-        <button className="btn accent" onClick={addFlavorAdmin}>Добавить</button></div></div>
-    <div className="card"><div className="hd"><h3>Запрещённые слова</h3></div>
-      <div className="bd"><div className="row"><input className="input" placeholder="Добавить слово" value={banInput} onChange={e=>setBanInput(e.target.value)}/>
-        <button className="btn" onClick={addBan}>+</button></div>
-      {(!banned||!banned.length)?<div className="tiny muted">Список пуст</div>:banned.map(w=>
-        <div key={w} className="row between mix-card"><div className="tiny">{w}</div>
-          <button className="btn small danger" onClick={()=>delBan(w)}>×</button></div>)}</div></div>
-    </>
-  )}
- </div>);
+    function App(){
+      const [tab,setTab]=useState('community');
+
+      const seed=[
+        {id:"alfakher",name:"Al Fakher",hidden:false,flavors:[
+          {id:"mint",name:"Mint",strength:2,taste:"свежий, мятный",hidden:false},
+          {id:"grape",name:"Grape",strength:2,taste:"фруктовый, виноградный",hidden:false},
+          {id:"double-apple",name:"Double Apple",strength:3,taste:"анисовый, яблочный",hidden:false}
+        ]},
+        {id:"musthave",name:"Must Have",hidden:false,flavors:[
+          {id:"raspberry",name:"Raspberry",strength:3,taste:"ягодный, кисловатый",hidden:false},
+          {id:"cheesecake",name:"Cheesecake",strength:4,taste:"десертный, сливочный",hidden:false},
+          {id:"whiskey-cola",name:"Whiskey Cola",strength:5,taste:"алкогольный, кола",hidden:false}
+        ]},
+        {id:"darkside",name:"Darkside",hidden:false,flavors:[
+          {id:"pear",name:"Pear",strength:5,taste:"грушевый, сочный",hidden:false},
+          {id:"cola",name:"Cola",strength:5,taste:"карамельный",hidden:false},
+          {id:"spiced-rum",name:"Spiced Rum",strength:7,taste:"пряный, алкогольный",hidden:false}
+        ]}
+      ];
+
+      const [brands,setBrands]=useState(()=>load("h.brands.v3",seed));
+      const [banned,setBanned]=useState(()=>load("h.banned",[]));
+      const [mixes, setMixes] = useState([]);
+
+      // === Загрузка миксов при старте (локальный эндпоинт) ===
+      useEffect(() => {
+        fetch("/api/mixes")
+          .then(r => r.json())
+          .then(setMixes)
+          .catch(err => console.error("Ошибка загрузки миксов:", err));
+      }, []);
+
+      useEffect(()=>save("h.brands.v3",brands),[brands]);
+      useEffect(()=>save("h.banned",banned),[banned]);
+      useEffect(()=>save("h.mixes.v3",mixes),[mixes]);
+
+      // 🧹 При изменении списка запрещённых слов — удаляем миксы с ними
+      useEffect(() => {
+        if (banned.length > 0) {
+          setMixes(prev => {
+            const filtered = prev.filter(m => 
+              !banned.some(w => (m.title || '').toLowerCase().includes(w.toLowerCase()))
+            );
+            if (filtered.length !== prev.length) {
+              console.log("❌ Удалены миксы с запрещёнными словами:", banned);
+              save("h.mixes.v3", filtered);
+            }
+            return filtered;
+          });
+        }
+      }, [banned]);
+
+      // community
+      const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];
+      const [pref,setPref]=useState('all');
+      const [strength,setStrength]=useState(5);
+      const [likes,setLikes]=useState({});
+      const rec=mixes
+        .filter(m=>pref==='all'||m.parts.some(p=>p.taste.toLowerCase().includes(pref)))
+        .filter(m=>Math.abs(m.avgStrength-strength)<=1);
+
+      // === Лайки с синхронизацией на сервер ===
+      const toggleLike = async (id) => {
+        try {
+          const already = !!likes[id];
+          const delta = already ? -1 : 1;
+
+          const res = await fetch(`/api/mixes/${id}/like`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ delta })
+          });
+          const result = await res.json();
+          if (!result.success) throw new Error(result.error || "like failed");
+
+          setMixes(ms => ms.map(m => m.id === id ? { ...m, likes: result.mix.likes } : m));
+          setLikes(s => {
+            const n = { ...s };
+            if (already) delete n[id]; else n[id] = 1;
+            return n;
+          });
+        } catch (e) {
+          console.error("Ошибка лайка:", e);
+        }
+      };
+
+      // builder
+      const [selected,setSelected]=useState(null);
+      const [search,setSearch]=useState("");
+      const [parts,setParts]=useState([]);
+      const selectedBrand=useMemo(()=>brands.find(b=>b.id===selected)||null,[selected,brands]);
+      const total=parts.reduce((a,b)=>a+b.percent,0);
+      const avg=parts.length&&total>0?Math.round(parts.reduce((a,p)=>a+p.percent*p.strength,0)/total):0;
+      const remaining=Math.max(0,100-total);
+      const visibleBrands=brands.filter(b=>!b.hidden);
+      const filtered=selectedBrand?selectedBrand.flavors.filter(f=>!f.hidden).filter(f=>{
+        const q=search.toLowerCase();return f.name.toLowerCase().includes(q)||f.taste.toLowerCase().includes(q);
+      }):[];
+      const addFlavor=(brandId,fl)=>{
+        if(remaining<=0)return;
+        const key=`${brandId}:${fl.id}`;
+        setParts(prev=>{
+          if(prev.some(p=>p.key===key))return prev;
+          const defPct=Math.min(10,Math.max(0,100-prev.reduce((a,b)=>a+b.percent,0)));
+          if(defPct<=0)return prev;
+          return[...prev,{key,brandId,flavorId:fl.id,name:fl.name,taste:fl.taste,strength:fl.strength,percent:defPct}]
+        })
+      };
+      const updatePct=(key,val)=>{
+        setParts(prev=>{
+          const sumOthers=prev.reduce((a,b)=>a+(b.key===key?0:b.percent),0);
+          const allowed=Math.max(0,100-sumOthers);
+          const clamped=clamp(Math.round(val),0,allowed);
+          return prev.map(x=>x.key===key?{...x,percent:clamped}:x)
+        })
+      };
+      const removePart=key=>setParts(prev=>prev.filter(x=>x.key!==key));
+      const saveMix = async () => {
+        if (total !== 100) return;
+
+        const title = prompt("Введите название вашего микса:");
+        if (!title) return;
+
+        const bad = banned.find(w => title.toLowerCase().includes(w.toLowerCase()));
+        if (bad) {
+          alert(`❌ В названии найдено запрещённое слово: "${bad}"`);
+          return;
+        }
+
+        const newMix = {
+          name: title.trim(),
+          author: CURRENT_USER_NAME,
+          flavors: parts,
+          avgStrength: avg
+        };
+
+        try {
+          const res = await fetch("/api/mixes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newMix)
+          });
+          const result = await res.json();
+
+          if (result && result.success) {
+            alert("✅ Микс сохранён");
+            setParts([]);
+            const r = await fetch("/api/mixes");
+            const data = await r.json();
+            setMixes(data);
+          } else {
+            alert("❌ Ошибка при сохранении микса");
+          }
+        } catch (err) {
+          console.error("Ошибка сохранения микса:", err);
+          alert("❌ Не удалось сохранить микс");
+        }
+      };
+
+      // --- ADMIN (как в исходнике) ---
+      const [brandName,setBrandName]=useState("");
+      const [brandForFlavor,setBrandForFlavor]=useState((brands[0] && brands[0].id)||"");
+      const [flavorName,setFlavorName]=useState("");
+      const [flavorStrength,setFlavorStrength]=useState(5);
+      const [flavorTaste,setFlavorTaste]=useState("");
+      const [banInput,setBanInput]=useState("");
+
+      const addBrand=()=>{
+        const name=brandName.trim(); if(!name)return;
+        const id=slug(name); if(brands.some(b=>b.id===id))return;
+        const next=[...brands,{id,name,hidden:false,flavors:[]}];
+        setBrands(next); setBrandName(""); if(!brandForFlavor)setBrandForFlavor(id);
+      };
+      const addFlavorAdmin=()=>{
+        const b=brands.find(x=>x.id===brandForFlavor); if(!b)return;
+        const name=flavorName.trim(); if(!name)return;
+        const id=slug(name); if(b.flavors.some(f=>f.id===id))return;
+        const st=clamp(Math.round(flavorStrength),1,10);
+        const fl={id,name,strength:st,taste:flavorTaste.trim(),hidden:false};
+        setBrands(brands.map(x=>x.id===b.id?{...x,flavors:[...x.flavors,fl]}:x));
+        setFlavorName(""); setFlavorTaste("");
+      };
+      const toggleBrandHidden=id=>setBrands(prev=>prev.map(b=>b.id===id?{...b,hidden:!b.hidden}:b));
+      const toggleFlavorHidden=(bid,fid)=>setBrands(prev=>prev.map(b=>b.id===bid?{...b,flavors:b.flavors.map(f=>f.id===fid?{...f,hidden:!f.hidden}:f)}:b));
+      const delBrand=id=>{
+        const next=brands.filter(b=>b.id!==id);
+        setBrands(next);
+        if(brandForFlavor===id)setBrandForFlavor(next[0]?.id||"");
+        if(selected===id)setSelected(null);
+      };
+      const delFlavor=(bid,fid)=>setBrands(prev=>prev.map(b=>b.id!==bid?b:{...b,flavors:b.flavors.filter(f=>f.id!==fid)}));
+      const addBan=()=>{
+        const w=banInput.trim().toLowerCase(); if(!w)return;
+        if(banned.includes(w))return;
+        setBanned([...banned,w]); setBanInput("");
+      };
+      const delBan=w=>setBanned(banned.filter(x=>x!==w));
+
+      return (
+        <div className="container">
+          <header className="title">Кальянный Миксер</header>
+
+          <div className="tabs">
+            <button className={"tab-btn"+(tab==='community'?' active':'')} onClick={()=>setTab('community')}>Миксы</button>
+            <button className={"tab-btn"+(tab==='builder'?' active':'')} onClick={()=>setTab('builder')}>Конструктор</button>
+            {IS_ADMIN && <button className={"tab-btn"+(tab==='admin'?' active':'')} onClick={()=>setTab('admin')}>Админ</button>}
+          </div>
+
+          {tab==='community'&&(
+            <div className="card">
+              <div className="hd">
+                <h3>Рекомендации</h3>
+                <p className="desc">Выберите настроение и крепость</p>
+              </div>
+              <div className="bd">
+                <div className="grid-2">
+                  <button className={"btn "+(pref==='all'?'accent':'')} onClick={()=>setPref('all')}>Все</button>
+                  {DIR.map(t=><button key={t} className={"btn "+(pref===t?'accent':'')} onClick={()=>setPref(t)}>{t}</button>)}
+                </div>
+                <div className="space"></div>
+                <div>Крепость: <b>{strength}</b></div>
+                <input type="range" min="1" max="10" value={strength} onChange={e=>setStrength(parseInt(e.target.value))}/>
+                <div className="sep"></div>
+                <div className="grid">
+                  {rec.map(m=>(
+                    <div key={m.id} className="mix-card">
+                      <div className="row between">
+                        <div>
+                          <div style={{fontWeight:600}}>{m.title}</div>
+                          <div className="tiny muted">Микс от {m.author}</div>
+                        </div>
+                        <button className={"btn "+(likes[m.id]?'accent':'')} onClick={()=>toggleLike(m.id)}>❤ {m.likes}</button>
+                      </div>
+                      <div className="space"></div>
+                      <div className="tiny">Крепость: <b>{m.avgStrength}</b></div>
+                      <div className="taste-line">{smartDesc(m.parts)}</div>
+                      <div className="tiny muted">Состав: {m.parts.map(p=>p.name+" "+p.percent+"%").join(' + ')}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab==='builder'&&(
+            <>
+              <div className="card">
+                <div className="hd"><h3>Бренды</h3><p className="desc">Выберите бренд и добавляйте вкусы</p></div>
+                <div className="bd grid">
+                  <div className="grid-2">
+                    {visibleBrands.map(b=>(
+                      <button key={b.id} className={"brand-btn"+(selected===b.id?' active':'')} onClick={()=>setSelected(b.id)}>{b.name}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {selectedBrand && (
+                <div className="card">
+                  <div className="hd"><h3>Вкусы — {selectedBrand.name}</h3><p className="desc">Добавьте вкус в микс</p></div>
+                  <div className="bd grid">
+                    <input className="input" placeholder="Поиск по вкусам…" value={search} onChange={e=>setSearch(e.target.value)} />
+                    {filtered.map(f=>(
+                      <div key={f.id} className="flavor-item">
+                        <div>
+                          <div style={{fontWeight:600}}>{f.name}</div>
+                          <div className="tiny muted">крепость: {f.strength} • вкус: {f.taste}</div>
+                        </div>
+                        <button className="btn" onClick={()=>addFlavor(selectedBrand.id,f)}>+ в микс</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="card">
+                <div className="hd"><h3>Ваш микс</h3><p className="desc">Сумма должна быть 100%</p></div>
+                <div className="bd grid">
+                  {parts.length===0 && <div className="tiny muted">Добавьте вкусы из списка выше.</div>}
+                  {parts.map(p=>(
+                    <div key={p.key} className="mix-card">
+                      <div className="row between">
+                        <div>
+                          <div style={{fontWeight:600}}>{p.name}</div>
+                          <div className="tiny muted">крепость: {p.strength} • вкус: {p.taste}</div>
+                        </div>
+                        <button className="btn" onClick={()=>removePart(p.key)}>удалить</button>
+                      </div>
+                      <input type="range" min="0" max="100" step="5" value={p.percent} onChange={e=>updatePct(p.key,parseInt(e.target.value))}/>
+                      <div className="row between tiny muted"><span>0%</span><span>{p.percent}%</span><span>100%</span></div>
+                    </div>
+                  ))}
+                  <div className="sep"></div>
+                  <div className="row between tiny muted">
+                    <div>Сумма: <b>{total}%</b> (осталось: <b>{Math.max(0,100-total)}%</b>)</div>
+                    <div>крепость: <b>{avg||0}</b></div>
+                  </div>
+                  <button className={"btn "+(total===100?'accent':'')} onClick={saveMix} disabled={total!==100}>Сохранить</button>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="hd"><h3>Итоговый вкус</h3><p className="desc">Короткое описание</p></div>
+                <div className="bd">{parts.length===0?<div className="muted">Ещё нет выбранных вкусов.</div>:<div className="taste-line">{smartDesc(parts)}</div>}</div>
+              </div>
+            </>
+          )}
+
+          {IS_ADMIN && tab==='admin' && (
+            <>
+              <div className="card">
+                <div className="hd"><h3>Бренды</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+                <div className="bd">
+                  <div className="row">
+                    <input className="input" placeholder="Новый бренд" value={brandName} onChange={e=>setBrandName(e.target.value)}/>
+                    <button className="btn" onClick={addBrand}>Добавить</button>
+                  </div>
+                  <div className="space"></div>
+                  <div className="grid-2">
+                    {brands.map(b=>(
+                      <div key={b.id} className="mix-card">
+                        <div className="row between">
+                          <div>
+                            <div style={{fontWeight:600}}>{b.name}</div>
+                            <div className="tiny muted">вкусов: {b.flavors.length}</div>
+                            {b.hidden?<div className="badge hidden">скрыт</div>:<div className="badge ok">доступен</div>}
+                          </div>
+                          <div className="grid">
+                            <button className="btn small ghost" onClick={()=>toggleBrandHidden(b.id)}>{b.hidden?"показать":"скрыть"}</button>
+                            <button className="btn small danger" onClick={()=>delBrand(b.id)}>удалить</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="hd"><h3>Вкусы</h3><p className="desc">Добавление / скрытие / удаление</p></div>
+                <div className="bd">
+                  <div className="grid-2">
+                    <select className="input" value={brandForFlavor} onChange={e=>setBrandForFlavor(e.target.value)}>
+                      {brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    <input className="input" placeholder="Название вкуса" value={flavorName} onChange={e=>setFlavorName(e.target.value)}/>
+                  </div>
+                  <div className="space"></div>
+                  <div className="row between">
+                    <div>Крепость: <b>{flavorStrength}</b></div>
+                    <input type="range" min="1" max="10" value={flavorStrength} onChange={e=>setFlavorStrength(parseInt(e.target.value))}/>
+                  </div>
+                  <div className="space"></div>
+                  <input className="input" placeholder="Описание вкуса (направления)" value={flavorTaste} onChange={e=>setFlavorTaste(e.target.value)}/>
+                  <div className="space"></div>
+                  <div className="row" style={{justifyContent:'flex-end'}}><button className="btn" onClick={addFlavorAdmin}>Добавить вкус</button></div>
+
+                  {brands.find(b=>b.id===brandForFlavor) && (
+                    <>
+                      <div className="sep"></div>
+                      <div className="muted">Вкусы бренда: {brands.find(b=>b.id===brandForFlavor).name}</div>
+                      <div className="space"></div>
+                      <div className="grid">
+                        {brands.find(b=>b.id===brandForFlavor).flavors.map(f=>(
+                          <div key={f.id} className="flavor-item">
+                            <div>
+                              <div style={{fontWeight:600}}>{f.name}</div>
+                              <div className="tiny muted">крепость: {f.strength} • вкус: {f.taste}</div>
+                              {f.hidden && <div className="badge hidden">скрыт</div>}
+                            </div>
+                            <div className="row">
+                              <button className="btn small ghost" onClick={()=>toggleFlavorHidden(brandForFlavor,f.id)}>{f.hidden?"показать":"скрыть"}</button>
+                              <button className="btn small danger" onClick={()=>delFlavor(brandForFlavor,f.id)}>удалить</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="hd"><h3>Запрещённые слова</h3></div>
+                <div className="bd">
+                  <div className="row">
+                    <input className="input" placeholder="например: 18+" value={banInput} onChange={e=>setBanInput(e.target.value)}/>
+                    <button className="btn" onClick={addBan}>Добавить</button>
+                  </div>
+                  <div className="space"></div>
+                  <div className="row" style={{flexWrap:'wrap',gap:'8px'}}>
+                    {banned.length===0 && <div className="muted tiny">Пусто</div>}
+                    {banned.map(w=>(
+                      <div key={w} className="badge">
+                        {w}
+                        <button className="btn tiny ghost" style={{marginLeft:'6px',padding:'2px 6px'}} onClick={()=>delBan(w)}>удалить</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
+
+</div>
+
+<script>
+function enterApp() {
+  const w = document.getElementById('welcome-wrapper');
+  const a = document.getElementById('app-root');
+  w.classList.add('hidden');
+  document.body.style.overflow='hidden';
+  setTimeout(() => {
+    w.style.display = 'none';
+    a.style.opacity = '1'; document.body.style.overflow='auto';
+  }, 1000);
 }
 </script>
 
+
+<div id="mixes-list" class="container" style="margin-top:8px;"></div>
+
+
 <script>
-window.enterApp = function(){
-  if(window.appStarted) return;
-  window.appStarted = true;
-  const w = document.getElementById("welcome");
-  const root = document.getElementById("root");
-  if(!w || !root) return;
-  w.classList.add("hidden");
-  setTimeout(()=>{
-    w.style.display="none";
-    root.style.opacity="1";
-    ReactDOM.createRoot(root).render(<App/>);
-  },800);
-};
+// === File-based mixes: load & save ===
+async function loadMixes() {
+  try {
+    const res = await fetch('/api/mixes');
+    const mixes = await res.json();
+    renderMixes(mixes);
+  } catch (err) {
+    console.error('Ошибка загрузки миксов:', err);
+  }
+}
+
+async function saveMix(mix) {
+  try {
+    const res = await fetch('/api/mixes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mix)
+    });
+    const result = await res.json();
+    if (result && result.success) {
+      if (window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred) {
+        try { Telegram.WebApp.HapticFeedback.notificationOccurred('success'); } catch(e){}
+      }
+      loadMixes();
+      alert('✅ Микс сохранён');
+    } else {
+      alert('Не удалось сохранить микс');
+    }
+  } catch (err) {
+    console.error('Ошибка сохранения микса:', err);
+    alert('Ошибка сохранения микса');
+  }
+}
+
+function renderMixes(mixes) {
+  const c = document.getElementById('mixes-list');
+  if (!c) return;
+  c.innerHTML = '';
+  (mixes || []).slice().reverse().forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'mix-card';
+    const details = m.parts ? `<div class="tiny muted">${m.parts.map(f => `${f.name || ''} ${f.taste || ''} — ${f.percent || 0}%`).join('<br>')}</div>` : '';
+    card.innerHTML = `<div class="row between"><strong>${m.title || 'Без названия'}</strong></div>${details}`;
+    c.appendChild(card);
+  });
+}
+
+window.addEventListener('DOMContentLoaded', loadMixes);
 </script>
 
 </body>
