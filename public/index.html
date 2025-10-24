@@ -257,17 +257,39 @@ const delFlavor = (bid, fid) => {
   saveLibrary(newLib);               // ✅ добавлено
 };
 
- // banned (local only)
- const [banInput,setBanInput]=useState("");
- const addBan=()=>{
-   const w=(banInput||"").trim(); if(!w) return;
-   const list=[...new Set([...(banned||[]), w])];
-   setBanned(list); localStorage.setItem("bannedWords", JSON.stringify(list)); setBanInput("");
- };
- const delBan=(word)=>{
-   const list=(banned||[]).filter(x=>String(x)!==String(word));
-   setBanned(list); localStorage.setItem("bannedWords", JSON.stringify(list));
- };
+ // === BAN-LIST (server sync, permanent deletion) ===
+const [banInput, setBanInput] = useState("");
+
+// загрузка при старте
+useEffect(() => {
+  fetch("/api/banned")
+    .then(r => r.json())
+    .then(setBanned)
+    .catch(() => setBanned([]));
+}, []);
+
+const addBan = async () => {
+  const w = banInput.trim().toLowerCase();
+  if (!w) return;
+  const list = [...new Set([...(banned || []), w])];
+  setBanned(list);
+  setBanInput("");
+  await fetch("/api/banned", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(list)
+  });
+};
+
+const delBan = async (word) => {
+  const list = (banned || []).filter(x => String(x) !== String(word));
+  setBanned(list);
+  await fetch("/api/banned", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(list)
+  });
+};
 
  // UI
  const DIR=["десертный","кислый","травяной","пряный","чайный","сладкий","свежий","алкогольный","гастрономический"];

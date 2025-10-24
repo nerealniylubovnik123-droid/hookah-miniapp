@@ -107,6 +107,37 @@ app.post("/api/banned", (req, res) => {
   res.json({ success: true });
 });
 
+// === Запрещённые слова (удаление миксов у всех) ===
+const PATH_BANNED = path.join(DATA_DIR, "banned.json");
+if (!fs.existsSync(PATH_BANNED)) fs.writeFileSync(PATH_BANNED, "[]", "utf-8");
+
+app.get("/api/banned", (req, res) => {
+  const list = readJsonArray(PATH_BANNED);
+  res.json(list);
+});
+
+app.post("/api/banned", (req, res) => {
+  try {
+    const list = Array.isArray(req.body) ? req.body.map(String) : [];
+    fs.writeFileSync(PATH_BANNED, JSON.stringify(list, null, 2), "utf-8");
+
+    // --- фильтруем миксы ---
+    let mixes = readJsonArray(SINGLE_PATH);
+    const lowered = list.map(w => w.toLowerCase());
+    const filtered = mixes.filter(m => !lowered.some(w => (m.title || "").toLowerCase().includes(w)));
+    if (filtered.length !== mixes.length) {
+      safeWriteJson(SINGLE_PATH, filtered);
+      mirrorToRootIfNeeded();
+      console.log("🚫 Удалены миксы с запрещёнными словами:", list);
+    }
+
+    res.json({ success: true, banned: list, removed: mixes.length - filtered.length });
+  } catch (err) {
+    console.error("POST /api/banned error:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
 // FRONT
 app.get("*", (req, res) =>
   res.sendFile(path.join(PUBLIC_DIR, "index.html"))
