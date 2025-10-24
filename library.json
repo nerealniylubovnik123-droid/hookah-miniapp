@@ -27,9 +27,9 @@
     "flavors": [
       {
         "id": "mint",
-        "name": "Mint",
+        "name": "Mt",
         "strength": 2,
-        "taste": "свежий, мятный",
+        "taste": "мятный",
         "hidden": false
       },
       {
