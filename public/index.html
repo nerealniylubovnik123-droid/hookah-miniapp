@@ -194,32 +194,68 @@ function App(){
    await fetch("/api/library",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lib)});
  };
 
- const addBrand=()=>{
-   const name=brandName.trim();if(!name)return;
-   const id=name.toLowerCase().replace(/\s+/g,"-");
-   const newLib=[...brands,{id,name,hidden:false,flavors:[]}];
-   setBrands(newLib);saveLibrary(newLib);setBrandName("");
- };
- const addFlavorAdmin=()=>{
-   const b=brands.find(x=>x.id===brandForFlavor);if(!b)return;
-   const name=flavorName.trim();if(!name)return;
-   const fl={id:name.toLowerCase().replace(/\s+/g,"-"),name,strength:flavorStrength,taste:flavorTaste,hidden:false};
-   const newLib=brands.map(x=>x.id===b.id?{...x,flavors:[...x.flavors,fl]}:x);
-   setBrands(newLib);saveLibrary(newLib);setFlavorName("");setFlavorTaste("");
- };
- const toggleHidden=(bid,fid)=>{
-   const newLib=brands.map(b=>{
-     if(b.id!==bid)return b;
-     if(!fid)return{...b,hidden:!b.hidden};
-     return {...b,flavors:b.flavors.map(f=>f.id===fid?{...f,hidden:!f.hidden}:f)};
-   });
-   setBrands(newLib);saveLibrary(newLib);
- };
- const delBrand=id=>{const newLib=brands.filter(b=>b.id!==id);setBrands(newLib);saveLibrary(newLib);};
- const delFlavor=(bid,fid)=>{
-   const newLib=brands.map(b=>b.id===bid?{...b,flavors:b.flavors.filter(f=>f.id!==fid)}:b);
-   setBrands(newLib);saveLibrary(newLib);
- };
+ // === Admin ===
+const addBrand = () => {
+  const name = brandName.trim();
+  if (!name) return;
+  const id = name.toLowerCase().replace(/\s+/g, "-");
+  const newLib = [...brands, { id, name, hidden: false, flavors: [] }];
+  setBrands(newLib);
+  saveLibrary(newLib);               // ✅ добавлено
+  setBrandName("");
+};
+
+const addFlavorAdmin = () => {
+  const b = brands.find((x) => x.id === brandForFlavor);
+  if (!b) return;
+  const name = flavorName.trim();
+  if (!name) return;
+  const fl = {
+    id: name.toLowerCase().replace(/\s+/g, "-"),
+    name,
+    strength: flavorStrength,
+    taste: flavorTaste,
+    hidden: false,
+  };
+  const newLib = brands.map((x) =>
+    x.id === b.id ? { ...x, flavors: [...x.flavors, fl] } : x
+  );
+  setBrands(newLib);
+  saveLibrary(newLib);               // ✅ добавлено
+  setFlavorName("");
+  setFlavorTaste("");
+};
+
+const toggleHidden = (bid, fid) => {
+  const newLib = brands.map((b) => {
+    if (b.id !== bid) return b;
+    if (!fid) return { ...b, hidden: !b.hidden };
+    return {
+      ...b,
+      flavors: b.flavors.map((f) =>
+        f.id === fid ? { ...f, hidden: !f.hidden } : f
+      ),
+    };
+  });
+  setBrands(newLib);
+  saveLibrary(newLib);               // ✅ добавлено
+};
+
+const delBrand = (id) => {
+  const newLib = brands.filter((b) => b.id !== id);
+  setBrands(newLib);
+  saveLibrary(newLib);               // ✅ добавлено
+};
+
+const delFlavor = (bid, fid) => {
+  const newLib = brands.map((b) =>
+    b.id === bid
+      ? { ...b, flavors: b.flavors.filter((f) => f.id !== fid) }
+      : b
+  );
+  setBrands(newLib);
+  saveLibrary(newLib);               // ✅ добавлено
+};
 
  // banned (local only)
  const [banInput,setBanInput]=useState("");
