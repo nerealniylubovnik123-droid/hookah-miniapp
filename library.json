@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "musthave",
+    "name": "Must Have",
+    "hidden": false,
+    "flavors": [
+      { "id": "raspberry", "name": "Raspberry", "strength": 3, "taste": "ягодный, кисловатый", "hidden": false },
+      { "id": "cheesecake", "name": "Cheesecake", "strength": 4, "taste": "десертный, сливочный", "hidden": false }
+    ]
+  },
+  {
+    "id": "alfakher",
+    "name": "Al Fakher",
+    "hidden": false,
+    "flavors": [
+      { "id": "mint", "name": "Mint", "strength": 2, "taste": "свежий, мятный", "hidden": false },
+      { "id": "grape", "name": "Grape", "strength": 2, "taste": "фруктовый, виноградный", "hidden": false }
+    ]
+  }
+]
