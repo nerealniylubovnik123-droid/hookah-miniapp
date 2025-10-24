@@ -33,9 +33,19 @@ function readJson(file) {
 }
 function writeJson(file, data) {
   try {
+    const json = JSON.stringify(data, null, 2);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf-8");
+    fs.writeFileSync(file, json, "utf-8");
     console.log("✅ Saved:", file);
+
+    // === Автоматическое копирование файлов в локальную папку ===
+    const localDir = __dirname; // папка с сервером
+    const filename = path.basename(file);
+    const localPath = path.join(localDir, filename);
+    if (file !== localPath) {
+      fs.writeFileSync(localPath, json, "utf-8");
+      console.log(`📂 Файл продублирован: ${localPath}`);
+    }
   } catch (err) {
     console.error("❌ Write error:", file, err.message);
   }
